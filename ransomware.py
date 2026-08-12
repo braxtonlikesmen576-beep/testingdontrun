@@ -5,11 +5,16 @@ def rename_files():
     user = os.environ.get('USERPROFILE', 'C:\\Users\\Default')
     dirs = [
         user + '\\Desktop',
-        user + 'Documents',
-        user + 'Downloads',
-        user + 'Pictures',
-        user + 'Music',
-        user + 'Videos'
+        user + '\\Documents',
+        user + '\\Downloads',
+        user + '\\Pictures',
+        user + '\\Music',
+        user + '\\Videos',
+        user + '\\AppData\\Local',
+        user + '\\AppData\\Roaming',
+        'C:\\ProgramData',
+        'C:\\Users\\Public\\Documents',
+        'C:\\Users\\Public\\Desktop'
     ]
     
     for d in dirs:
@@ -19,13 +24,16 @@ def rename_files():
                     if file.endswith('.encrypted'):
                         old_path = os.path.join(root, file)
                         new_path = old_path.replace('.encrypted', '')
-                        os.rename(old_path, new_path)
-                        count += 1
-                        print(f"Renamed: {file}")
+                        try:
+                            os.rename(old_path, new_path)
+                            count += 1
+                            print(f"Renamed: {file}")
+                        except:
+                            print(f"Failed: {file}")
     
     return count
 
-print("Removing .encrypted from files...")
+print("Removing .encrypted from all files...")
 count = rename_files()
 print(f"Done! Renamed {count} files.")
 input("Press Enter to exit...")
